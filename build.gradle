@@ -46,6 +46,7 @@ dependencies {
     testCompileOnly 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
     testAnnotationProcessor 'org.projectlombok:lombok'
+    runtimeOnly 'com.h2database:h2'
     testImplementation 'com.h2database:h2' // 테스트용 메모리 DB 추가
 }
 
