@@ -2,6 +2,7 @@ package com.michelet.order.presentation;
 
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,9 @@ public class OrderControllerTest {
         mockMvc.perform(get("/api/v1/orders/health")
                 .accept(MediaType.APPLICATION_JSON))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.data").isNotEmpty())
             .andDo(document("{class-name}/{method-name}")); // 명시적으로 추가
     }
 }
