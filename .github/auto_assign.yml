@@ -1,0 +1,19 @@
+addReviewers: true
+
+addAssignees: author
+
+reviewers:
+    - ji-circle
+    - githyj-jang
+    - jihxonx
+    - qldo
+    - Sehi55
+    - Jinyoung-Kim96
+
+numberOfReviewers: 6
+
+numberOfAssignees: 1
+
+# 'wip' 키워드가 제목에 있으면 실행 안 함
+skipKeywords:
+    - wip

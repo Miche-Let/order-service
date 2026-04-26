@@ -1,0 +1,15 @@
+= Order Service API Guide
+:doctype: book
+:icons: font
+:source-highlighter: highlightjs
+:toc: left
+:toclevels: 2
+
+== Health Check
+주문 서비스의 상태를 확인합니다.
+
+=== Request
+include::{snippets}/order-controller-test/health-check/http-request.adoc[]
+
+=== Response
+include::{snippets}/order-controller-test/health-check/http-response.adoc[]
