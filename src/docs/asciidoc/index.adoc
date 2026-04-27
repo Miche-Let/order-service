@@ -42,7 +42,7 @@ include::{snippets}/order-controller-test/create-order-docs/http-response.adoc[]
 include::{snippets}/order-controller-test/create-order-docs/response-fields.adoc[]
 
 ==== [실패 시나리오]
-필수 요청 데이터(userId, items)가 누락된 경우 400 Bad Request를 반환합니다.
+필수 요청 데이터(userId, reservationId, restaurantId, orderName, reservedDate, expiredAt, items)가 누락되거나 형식/값 검증을 통과하지 못하면 400 Bad Request를 반환합니다.
 
 ===== Request
 include::{snippets}/order-controller-test/create-order-fail-invalid-input/http-request.adoc[]
