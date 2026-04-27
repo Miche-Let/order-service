@@ -28,6 +28,7 @@ public class OrderController {
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResult>> createOrder(@RequestBody @Valid CreateOrderRequest request) {
         OrderResult result = orderCommandService.createOrder(request.toCommand());
-        return ResponseEntity.ok(ApiResponse.ok(result));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED) // 201 반환
+            .body(ApiResponse.ok(result));
     }
 }
