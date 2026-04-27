@@ -29,8 +29,8 @@ public class OrderItem extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id")
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
     @Column(nullable = false)
@@ -54,6 +54,12 @@ public class OrderItem extends BaseEntity {
     }
 
     public static OrderItem create(UUID optionId, String productName, BigDecimal orderPrice, Integer quantity) {
+        if (optionId == null) {
+            throw new IllegalArgumentException("옵션 ID는 필수입니다.");
+        }
+        if (productName == null || productName.trim().isEmpty()) {
+            throw new IllegalArgumentException("상품명은 필수입니다.");
+        }
         Price validPrice = Price.of(orderPrice);
         Quantity validQuantity = new Quantity(quantity);
         return new OrderItem(optionId, productName, validPrice.value(), validQuantity.value());
