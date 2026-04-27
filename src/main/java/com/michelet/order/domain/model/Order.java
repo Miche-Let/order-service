@@ -79,7 +79,7 @@ public class Order extends BaseEntity {
         this.userId = userId;
         this.reservationId = reservationId;
         this.restaurantId = restaurantId;
-        this.orderName = orderName;
+        this.orderName = orderName != null ? orderName.trim() : null; //생성자에서 데이터 정규화(trim) 처리
         this.reservedDate = reservedDate;
         this.receivingMethod = receivingMethod != null ? receivingMethod : ReceivingMethod.PICKUP;
         this.expiredAt = expiredAt;
@@ -148,7 +148,6 @@ public class Order extends BaseEntity {
         verifyNotTerminalState(); // 종료 상태(COMPLETED, CANCELED) 검증 추가
 
         if (this.orderItems.remove(item)) {
-            item.assignOrder(null);
             this.totalAmount = this.totalAmount.subtract(item.getLinePrice());
         }
     }
