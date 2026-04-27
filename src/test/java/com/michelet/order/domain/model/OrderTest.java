@@ -77,4 +77,17 @@ class OrderTest {
             LocalDateTime.now().plusHours(2),
             List.of(item));
     }
+
+    @Test
+    @DisplayName("실패: 이미 취소된 주문은 완료 상태로 변경할 수 없다")
+    void statusTransition_Fail_CanceledToCompleted() {
+        // given
+        Order order = createDefaultOrder();
+        order.cancel();
+
+        // when & then
+        assertThatThrownBy(order::complete)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("주문 완료가 불가능한 상태입니다.");
+    }
 }
