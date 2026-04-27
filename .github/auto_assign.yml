@@ -2,6 +2,8 @@ addReviewers: true
 
 addAssignees: author
 
+ignoreDraft: true
+
 reviewers:
     - ji-circle
     - githyj-jang
@@ -17,3 +19,4 @@ numberOfAssignees: 1
 # 'wip' 키워드가 제목에 있으면 실행 안 함
 skipKeywords:
     - wip
+    - WIP
