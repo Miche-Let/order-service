@@ -92,20 +92,16 @@ public class Order extends BaseEntity {
         }
         Order order = new Order(userId, reservationId, restaurantId, orderName, reservedDate, receivingMethod,
             expiredAt);
+        // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
         items.forEach(order::addOrderItem);
-        order.calculateTotalAmount(); // N^2 연산 방지를 위해 항목을 모두 추가한 뒤 마지막에 1회만 계산
         return order;
     }
 
     public void addOrderItem(OrderItem item) {
         this.orderItems.add(item);
         item.assignOrder(this);
-    }
-
-    private void calculateTotalAmount() {
-        this.totalAmount = orderItems.stream()
-            .map(OrderItem::getLinePrice)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // O(1) 복잡도로 상태 정합성 유지 (N^2 문제 회피)
+        this.totalAmount = this.totalAmount.add(item.getLinePrice());
     }
 
     public void complete() {
