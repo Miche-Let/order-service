@@ -110,13 +110,26 @@ public class Order extends BaseEntity {
         return order;
     }
 
+    // 도메인 규칙 검증 헬퍼 메서드 - 종료 상태 확인
+    private void verifyNotTerminalState() {
+        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED) {
+            throw new IllegalStateException("완료되거나 취소된 주문의 상품은 변경할 수 없습니다.");
+        }
+    }
+
     public void addOrderItem(OrderItem item) {
+        verifyNotTerminalState(); // 종료 상태(COMPLETED, CANCELED) 검증 추가
         // Null 가드 및 소유권 검증
         if (item == null) {
             throw new IllegalArgumentException("추가할 주문 항목(OrderItem)이 null입니다.");
         }
         if (item.getOrder() != null && item.getOrder() != this) {
             throw new IllegalStateException("해당 주문 항목은 이미 다른 주문에 할당되어 있습니다.");
+        }
+
+        // 중복 삽입 방지 가드 추가
+        if (this.orderItems.contains(item) || item.getOrder() == this) {
+            throw new IllegalArgumentException("이미 해당 주문에 추가된 항목입니다.");
         }
 
         this.orderItems.add(item);
@@ -132,6 +145,8 @@ public class Order extends BaseEntity {
 
     // 향후 주문 상품 삭제 등 요구사항을 위한 역방향 연관관계 해제 및 정합성 유지 메서드
     public void removeOrderItem(OrderItem item) {
+        verifyNotTerminalState(); // 종료 상태(COMPLETED, CANCELED) 검증 추가
+
         if (this.orderItems.remove(item)) {
             item.assignOrder(null);
             this.totalAmount = this.totalAmount.subtract(item.getLinePrice());
