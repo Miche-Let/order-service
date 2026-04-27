@@ -30,8 +30,13 @@ public class OrderCommandService {
             .toList();
 
         // 2. Aggregate Root(Order) 생성 및 계산
-        ReceivingMethod method = command.receivingMethod() != null ?
-            ReceivingMethod.valueOf(command.receivingMethod().toUpperCase()) : ReceivingMethod.PICKUP;
+        ReceivingMethod method;
+        try {
+            method = command.receivingMethod() != null ?
+                ReceivingMethod.valueOf(command.receivingMethod().toUpperCase()) : ReceivingMethod.PICKUP;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("지원하지 않는 수령 방법입니다: " + command.receivingMethod());
+        }
 
         Order order = Order.create(command.userId(), command.reservationId(),
             command.restaurantId(),
