@@ -48,6 +48,10 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
     runtimeOnly 'com.h2database:h2'
     testImplementation 'com.h2database:h2' // 테스트용 메모리 DB 추가
+
+    implementation 'com.michelet:common'
+
+    implementation 'org.springframework.boot:spring-boot-starter-security'
 }
 
 dependencyManagement {
