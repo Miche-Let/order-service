@@ -33,8 +33,17 @@ public record CreateOrderCommand(
     public record OrderItemCommand(UUID optionId, String productName, BigDecimal orderPrice, Integer quantity) {
         public OrderItemCommand {
             Objects.requireNonNull(optionId, "optionId는 필수입니다.");
-            Objects.requireNonNull(productName, "productName은 필수입니다.");
+            // 빈 문자열(공백 포함) 검증
+            if (productName == null || productName.trim().isEmpty()) {
+                throw new IllegalArgumentException("productName은 필수이며 비어있을 수 없습니다.");
+            }
+
             Objects.requireNonNull(orderPrice, "orderPrice는 필수입니다.");
+            // 가격 0 미만(음수) 검증
+            if (orderPrice.compareTo(BigDecimal.ZERO) < 0) {
+                throw new IllegalArgumentException("orderPrice는 0 이상이어야 합니다.");
+            }
+
             if (quantity == null || quantity <= 0) {
                 throw new IllegalArgumentException("quantity는 1 이상이어야 합니다.");
             }

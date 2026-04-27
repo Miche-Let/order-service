@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import lombok.AccessLevel;
@@ -65,6 +66,7 @@ public class Order extends BaseEntity {
     private LocalDate reservedDate;
 
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Getter(AccessLevel.NONE) // 캡슐화를 위해 Lombok 자동 생성 방지
     private List<OrderItem> orderItems = new ArrayList<>();
 
     @Column(nullable = false, precision = 12, scale = 2)
@@ -102,6 +104,19 @@ public class Order extends BaseEntity {
         item.assignOrder(this);
         // O(1) 복잡도로 상태 정합성 유지 (N^2 문제 회피)
         this.totalAmount = this.totalAmount.add(item.getLinePrice());
+    }
+
+    // 외부 노출 시 읽기 전용 리스트 반환을 통한 상태 변경 차단
+    public List<OrderItem> getOrderItems() {
+        return Collections.unmodifiableList(this.orderItems);
+    }
+
+    // 향후 주문 상품 삭제 등 요구사항을 위한 역방향 연관관계 해제 및 정합성 유지 메서드
+    public void removeOrderItem(OrderItem item) {
+        if (this.orderItems.remove(item)) {
+            item.assignOrder(null);
+            this.totalAmount = this.totalAmount.subtract(item.getLinePrice());
+        }
     }
 
     public void complete() {
