@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -89,6 +90,16 @@ public class Order extends BaseEntity {
     public static Order create(UUID userId, UUID reservationId, UUID restaurantId, String orderName,
                                LocalDate reservedDate, ReceivingMethod receivingMethod, LocalDateTime expiredAt,
                                List<OrderItem> items) {
+        // 필수 값에 대한 Fail-fast 검증
+        Objects.requireNonNull(userId, "userId는 필수입니다.");
+        Objects.requireNonNull(reservationId, "reservationId는 필수입니다.");
+        Objects.requireNonNull(restaurantId, "restaurantId는 필수입니다.");
+        if (orderName == null || orderName.trim().isEmpty()) {
+            throw new IllegalArgumentException("orderName은 필수이며 비어있을 수 없습니다.");
+        }
+        Objects.requireNonNull(reservedDate, "reservedDate는 필수입니다.");
+        Objects.requireNonNull(expiredAt, "expiredAt은 필수입니다.");
+
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("주문 항목은 최소 1개 이상이어야 합니다.");
         }
@@ -100,6 +111,14 @@ public class Order extends BaseEntity {
     }
 
     public void addOrderItem(OrderItem item) {
+        // Null 가드 및 소유권 검증
+        if (item == null) {
+            throw new IllegalArgumentException("추가할 주문 항목(OrderItem)이 null입니다.");
+        }
+        if (item.getOrder() != null && item.getOrder() != this) {
+            throw new IllegalStateException("해당 주문 항목은 이미 다른 주문에 할당되어 있습니다.");
+        }
+
         this.orderItems.add(item);
         item.assignOrder(this);
         // O(1) 복잡도로 상태 정합성 유지 (N^2 문제 회피)
