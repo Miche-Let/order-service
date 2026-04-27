@@ -2,6 +2,8 @@ package com.michelet.order.presentation;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
@@ -85,7 +87,7 @@ public class OrderControllerTest {
         mockMvc.perform(post("/api/v1/orders")
                 .content(requestJson)
                 .contentType(MediaType.APPLICATION_JSON))
-            .andExpect(status().isOk())
+            .andExpect(status().isCreated())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.orderId").value(mockOrderId.toString()))
             .andDo(document("{class-name}/{method-name}",
@@ -126,5 +128,8 @@ public class OrderControllerTest {
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())
             .andDo(document("{class-name}/{method-name}"));
+
+        // Validation 실패 시 Service 레이어가 호출되지 않음을 검증
+        verify(orderCommandService, never()).createOrder(any());
     }
 }
