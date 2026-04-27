@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.data.domain.AuditorAware;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @Configuration
@@ -16,7 +16,7 @@ public class JpaConfig {
     @Profile("!test")
     public AuditorAware<UUID> auditorAware() {
         return () -> Optional.ofNullable(SecurityContextHolder.getContext().getAuthentication())
-            .filter(Authentication::isAuthenticated)
+            .filter(auth -> auth.isAuthenticated() && !(auth instanceof AnonymousAuthenticationToken)) // 익명 객체 제외 추가
             .map(auth -> {
                 try {
                     // 보안 컨텍스트에서 사용자 ID 추출 (현재는 이름을 UUID로 가정)
