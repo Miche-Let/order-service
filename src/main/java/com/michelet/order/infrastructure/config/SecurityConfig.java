@@ -18,8 +18,9 @@ public class SecurityConfig {
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                                       .anyRequest().permitAll()
-                                  );
+                .requestMatchers("/api/v1/orders/health").permitAll()
+                .anyRequest().authenticated()
+            );
 
         return http.build();
     }
