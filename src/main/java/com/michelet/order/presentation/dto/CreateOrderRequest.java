@@ -14,12 +14,11 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateOrderRequest(
-    @NotNull UUID userId, //TODO userId는 여기서 받는 게 아니라 헤더값으로 바꾸기!
     @NotNull UUID reservationId,
     @NotNull UUID restaurantId,
     @NotBlank String orderName,
     @NotNull LocalDate reservedDate,
-    String receivingMethod,
+    @NotBlank String receivingMethod,
     @NotNull LocalDateTime expiredAt,
     @NotEmpty List<@Valid OrderItemRequest> items
 ) {
@@ -31,7 +30,7 @@ public record CreateOrderRequest(
     ) {
     }
 
-    public CreateOrderCommand toCommand() {
+    public CreateOrderCommand toCommand(UUID userId) {
         return new CreateOrderCommand(
             userId,
             reservationId,
