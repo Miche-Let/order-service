@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record CreateOrderRequest(
-    @NotNull UUID userId,
+    @NotNull UUID userId, //TODO userId는 여기서 받는 게 아니라 헤더값으로 바꾸기!
     @NotNull UUID reservationId,
     @NotNull UUID restaurantId,
     @NotBlank String orderName,
