@@ -14,6 +14,11 @@ WORKDIR /app
 
 COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
 
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+RUN chown -R appuser:appuser /app
+
+USER appuser
+
 EXPOSE 19700
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
