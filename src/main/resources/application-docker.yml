@@ -1,6 +1,6 @@
 spring:
     datasource:
-        url: jdbc:postgresql://localhost:5432/michelet_db
+        url: jdbc:postgresql://db:5432/michelet_db
         username: admin
         password: admin
         driver-class-name: org.postgresql.Driver
@@ -11,4 +11,4 @@ spring:
 eureka:
     client:
         service-url:
-            defaultZone: http://localhost:8761/eureka/
+            defaultZone: http://eureka-server:8761/eureka/
