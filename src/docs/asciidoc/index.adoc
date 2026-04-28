@@ -1,15 +1,51 @@
-= Order Service API Guide
+= Miche-Let 주문 서비스 (Order Service) API 명세서
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs
 :toc: left
-:toclevels: 2
+:toclevels: 4
+:sectlinks:
 
+[[overview]]
+== 개요
+이 문서는 Miche-Let 주문 서비스의 API 명세서입니다. 모든 응답은 `common` 모듈의 `ApiResponse` 형식을 따릅니다.
+
+[[health-check]]
 == Health Check
-주문 서비스의 상태를 확인합니다.
+주문 서비스의 생존 상태를 확인합니다.
 
 === Request
 include::{snippets}/order-controller-test/health-check/http-request.adoc[]
 
 === Response
 include::{snippets}/order-controller-test/health-check/http-response.adoc[]
+
+[[order-management]]
+== 주문 관리 (Order Management)
+
+[[create-order]]
+=== 주문 등록
+
+==== [성공 시나리오]
+사용자가 정상적으로 주문을 생성하는 경우입니다. 주문 시점의 가격과 이름을 스냅샷으로 보존합니다.
+
+===== Request
+include::{snippets}/order-controller-test/create-order-docs/http-request.adoc[]
+
+===== Request Fields
+include::{snippets}/order-controller-test/create-order-docs/request-fields.adoc[]
+
+===== Response
+include::{snippets}/order-controller-test/create-order-docs/http-response.adoc[]
+
+===== Response Fields
+include::{snippets}/order-controller-test/create-order-docs/response-fields.adoc[]
+
+==== [실패 시나리오]
+필수 요청 데이터(userId, reservationId, restaurantId, orderName, reservedDate, expiredAt, items)가 누락되거나 형식/값 검증을 통과하지 못하면 400 Bad Request를 반환합니다.
+
+===== Request
+include::{snippets}/order-controller-test/create-order-fail-invalid-input/http-request.adoc[]
+
+===== Response
+include::{snippets}/order-controller-test/create-order-fail-invalid-input/http-response.adoc[]
