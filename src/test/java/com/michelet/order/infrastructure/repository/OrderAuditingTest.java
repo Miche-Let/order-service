@@ -1,24 +1,23 @@
 package com.michelet.order.infrastructure.repository;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.michelet.common.config.JpaAuditingConfig;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.model.OrderItem;
 import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.infrastructure.config.AuditorConfig;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
 @Import({AuditorConfig.class, JpaAuditingConfig.class})
@@ -29,7 +28,7 @@ class OrderAuditingTest {
     private JpaOrderRepository jpaOrderRepository;
 
     @Test
-    @DisplayName("성공: 데이터 저장 시 JpaConfig에 설정된 테스트용 UUID가 createdBy에 저장되어야 한다")
+    @DisplayName("성공: 데이터 저장 시 AuditorConfig에 설정된 테스트용 UUID가 createdBy에 저장되어야 한다")
     void auditing_CreatedBy_ShouldMatchTestAuditor() {
         // given
         OrderItem item = OrderItem.create(UUID.randomUUID(), "테스트", new BigDecimal("1000"), 1);
@@ -46,7 +45,7 @@ class OrderAuditingTest {
         Order savedOrder = jpaOrderRepository.save(order);
 
         // then
-        // JpaConfig의 testAuditorAware에서 반환하는 "0000...0000"과 일치해야 함
+        // AuditorConfig의 testAuditorAware에서 반환하는 "0000...0000"과 일치해야 함
         assertThat(savedOrder.getCreatedBy()).isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000000"));
         assertThat(savedOrder.getCreatedAt()).isNotNull();
     }
