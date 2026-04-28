@@ -5,11 +5,13 @@ import com.michelet.order.application.OrderCommandService;
 import com.michelet.order.application.dto.OrderResult;
 import com.michelet.order.presentation.dto.CreateOrderRequest;
 import jakarta.validation.Valid;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,8 +28,11 @@ public class OrderController {
     }
 
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResult>> createOrder(@RequestBody @Valid CreateOrderRequest request) {
-        OrderResult result = orderCommandService.createOrder(request.toCommand());
+    public ResponseEntity<ApiResponse<OrderResult>> createOrder(
+        @RequestHeader("X-User-Id") UUID userId,
+        @RequestBody @Valid CreateOrderRequest request
+    ) {
+        OrderResult result = orderCommandService.createOrder(request.toCommand(userId));
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED) // 201 반환
             .body(ApiResponse.ok(result));
     }
