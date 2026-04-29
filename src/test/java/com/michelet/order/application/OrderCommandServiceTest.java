@@ -3,6 +3,9 @@ package com.michelet.order.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
 
 import com.michelet.order.application.dto.CreateOrderCommand;
 import com.michelet.order.application.dto.OrderResult;
@@ -16,20 +19,27 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.transaction.annotation.Transactional;
 
-@SpringBootTest
 @ActiveProfiles("test")
-@Transactional
+@ExtendWith(MockitoExtension.class) // DB 없이 초고속으로 실행
 class OrderCommandServiceTest {
 
-    @Autowired
+    @InjectMocks
     private OrderCommandService orderCommandService;
-    @Autowired
+
+    @Mock
     private OrderRepository orderRepository;
+
+    // 리포지토리에 저장하려고 던지는 Order 객체를 낚아채는 Captor
+    @Captor
+    private ArgumentCaptor<Order> orderCaptor;
 
     @Test
     @DisplayName("성공: 다중 품목 주문 시 총 주문 금액이 정확히 계산되고 저장되어야 한다")
@@ -49,11 +59,15 @@ class OrderCommandServiceTest {
             )
         );
 
+        given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
+
         // when
         OrderResult result = orderCommandService.createOrder(command);
 
-        // then: (55000 * 2) + (12000 * 3) = 110000 + 36000 = 146000
-        Order savedOrder = orderRepository.findById(result.orderId()).orElseThrow();
+        // then: DB에서 꺼내는 대신, save() 호출 시 넘겨진 객체를 가로챔!
+        verify(orderRepository).save(orderCaptor.capture());
+        Order savedOrder = orderCaptor.getValue(); // 가로챈 객체
+
         assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo(new BigDecimal("146000"));
         assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.OCCUPIED);
         assertThat(savedOrder.getOrderItems()).hasSize(2);

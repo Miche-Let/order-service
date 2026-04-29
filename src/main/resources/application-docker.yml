@@ -1,0 +1,14 @@
+spring:
+    datasource:
+        url: ${DB_URL:jdbc:postgresql://db:5432/michelet_db}
+        username: ${DB_USERNAME}
+        password: ${DB_PASSWORD}
+        driver-class-name: org.postgresql.Driver
+    jpa:
+        hibernate:
+            ddl-auto: validate # 스키마 변경은 런타임에 애플리케이션이 하지 않고 Flyway/Liquibase 같은 도구로 관리
+
+eureka:
+    client:
+        service-url:
+            defaultZone: http://eureka-server:8761/eureka/

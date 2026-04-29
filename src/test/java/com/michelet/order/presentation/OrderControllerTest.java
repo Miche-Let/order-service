@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
+import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
@@ -66,13 +68,12 @@ public class OrderControllerTest {
 
         String requestJson = """
             {
-                "userId": "550e8400-e29b-41d4-a716-446655440000",
-                 "reservationId": "550e8400-e29b-41d4-a716-446655440002",
-                                "restaurantId": "550e8400-e29b-41d4-a716-446655440003",
-                                "orderName": "치킨 외 1건",
-                                "reservedDate": "2026-05-01",
-                                "receivingMethod": "PICKUP",
-                                "expiredAt": "2026-05-01T20:00:00",
+                "reservationId": "550e8400-e29b-41d4-a716-446655440002",
+                "restaurantId": "550e8400-e29b-41d4-a716-446655440003",
+                "orderName": "치킨 외 1건",
+                "reservedDate": "2026-05-01",
+                "receivingMethod": "PICKUP",
+                "expiredAt": "2026-05-01T20:00:00",
                 "items": [
                     {
                         "optionId": "550e8400-e29b-41d4-a716-446655440001",
@@ -85,14 +86,17 @@ public class OrderControllerTest {
             """;
 
         mockMvc.perform(post("/api/v1/orders")
+                .header("X-User-Id", "550e8400-e29b-41d4-a716-446655440000") // 헤더 추가
                 .content(requestJson)
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.orderId").value(mockOrderId.toString()))
             .andDo(document("{class-name}/{method-name}",
+                requestHeaders(
+                    headerWithName("X-User-Id").description("사용자 식별 ID")
+                ),
                 requestFields(
-                    fieldWithPath("userId").type(JsonFieldType.STRING).description("사용자 식별 ID"),
                     fieldWithPath("reservationId").type(JsonFieldType.STRING).description("예약 식별 ID"),
                     fieldWithPath("restaurantId").type(JsonFieldType.STRING).description("식당 ID"),
                     fieldWithPath("orderName").type(JsonFieldType.STRING).description("주문 요약 제목"),
@@ -121,9 +125,10 @@ public class OrderControllerTest {
     @Test
     @DisplayName("실패: 필수 파라미터 누락 시 400 에러를 반환한다")
     void createOrderFailInvalidInput() throws Exception {
-        String invalidJson = "{\"userId\": null}";
+        String invalidJson = "{\"reservationId\": null}";
 
         mockMvc.perform(post("/api/v1/orders")
+                .header("X-User-Id", "550e8400-e29b-41d4-a716-446655440000") // 헤더 부재로 인한 400을 피하기 위해 정상 헤더 세팅
                 .content(invalidJson)
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())

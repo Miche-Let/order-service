@@ -1,8 +1,1 @@
 rootProject.name = 'order-service'
-
-// 로컬 환경과 CI 환경 모두를 고려한 조건부 포함
-if (file('../common').exists()) {
-    includeBuild('../common')
-} else {
-    throw new GradleException("../common composite build is required. Either provide ../common directory or update com.michelet:common dependency coordinates.")
-}

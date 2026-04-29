@@ -10,7 +10,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 @Configuration
-public class JpaConfig {
+public class AuditorConfig {
 
     @Bean(name = "auditorAware")
     @Profile("!test")

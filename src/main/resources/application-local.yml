@@ -1,3 +1,13 @@
+spring:
+    datasource:
+        url: jdbc:postgresql://localhost:5432/michelet_db
+        username: admin
+        password: admin
+        driver-class-name: org.postgresql.Driver
+    jpa:
+        hibernate:
+            ddl-auto: update
+
 eureka:
     client:
         service-url:
