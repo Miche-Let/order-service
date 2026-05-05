@@ -120,7 +120,8 @@ public class OrderCommandService {
                     inventoryClient.restoreStock(restoreReq);
                     log.info("보상 완료: 옵션 {} 재고 복구", restoreReq.optionId());
                 } catch (Exception ex) {
-                    log.error("크리티컬: 재고 복구 실패 (데이터 불일치 발생!): optionId={}", restoreReq.optionId(), ex);
+                    log.error("크리티컬: 재고 복구 실패 (데이터 불일치 발생!): optionId={}, quantity={}",
+                        restoreReq.optionId(), restoreReq.quantity(), ex);
                 }
             }
             throw e;
