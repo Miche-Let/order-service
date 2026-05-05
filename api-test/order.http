@@ -83,7 +83,7 @@ Authorization: Bearer {{owner_token}}
 
 {
     "restaurantId": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "2222 오더용 미슐랭 예약 한정 코스",
+    "name": "오더용 미슐랭 예약 한정 코스",
     "category": "MEALKIT",
     "basePrice": 100000,
     "attributes": {},
@@ -93,14 +93,14 @@ Authorization: Bearer {{owner_token}}
     },
     "options": [
         {
-            "name": "2222 미슐랭 스페셜 코스",
+            "name": "미슐랭 스페셜 코스",
             "addPrice": 0,
             "totalQuantity": 50,
             "dailyLimit": 10,
             "maxLimit": 4
         },
         {
-            "name": "2222 추가 와인 페어링",
+            "name": "추가 와인 페어링",
             "addPrice": 50000,
             "totalQuantity": 50,
             "dailyLimit": 10,
