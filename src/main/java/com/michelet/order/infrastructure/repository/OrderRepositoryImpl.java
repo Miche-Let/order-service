@@ -21,4 +21,9 @@ public class OrderRepositoryImpl implements OrderRepository {
     public Optional<Order> findById(UUID id) {
         return jpaOrderRepository.findById(id);
     }
+
+    @Override
+    public boolean existsByReservationId(UUID reservationId) {
+        return jpaOrderRepository.existsByReservationId(reservationId);
+    }
 }

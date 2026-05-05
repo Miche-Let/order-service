@@ -1,0 +1,207 @@
+### 환경 변수 설정
+@host = localhost
+@gatewayPort = 19000
+@orderPort = 19700
+
+# 예약 서비스에서 요구하는 더미 데이터 (reservation.http 기준)
+@time_slot_id = 33333333-3333-3333-3333-333333333333
+@course_id = 44444444-4444-4444-4444-444444444444
+
+### 0. [Test] 내부 API용 테스트 JWT 토큰 발급 (로컬 전용)
+GET http://{{host}}:{{orderPort}}/test/internal-token
+
+
+> {%
+    client.test("내부 토큰 획득 성공", function () {
+        client.assert(response.status === 200, "내부 토큰 발급 실패");
+        client.global.set("internal_token", response.body);
+    });
+%}
+
+### 1-1. OWNER 회원가입
+POST http://{{host}}:{{gatewayPort}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+    "loginId": "OwnerOrderTest",
+    "password": "password1!",
+    "name": "식당사장님",
+    "email": "owner_order@test.com",
+    "phone": "010-9999-9999",
+    "userRole": "OWNER"
+}
+
+### 1-2. OWNER 로그인
+POST http://{{host}}:{{gatewayPort}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+    "loginId": "OwnerOrderTest",
+    "password": "password1!"
+}
+
+> {%
+    client.test("오너 로그인", function () {
+        client.assert(response.status === 200, "오너 로그인 실패");
+        client.global.set("owner_token", response.body.data.accessToken);
+    });
+%}
+
+### 2-1. USER 회원가입
+POST http://{{host}}:{{gatewayPort}}/api/v1/users/signup
+Content-Type: application/json
+
+{
+    "loginId": "UserOrderTest2",
+    "password": "password2!",
+    "name": "일반사용자2",
+    "email": "user_order2@test.com",
+    "phone": "010-1234-5672",
+    "userRole": "USER"
+}
+
+### 2-2. USER 로그인
+POST http://{{host}}:{{gatewayPort}}/api/v1/auth/login
+Content-Type: application/json
+
+{
+    "loginId": "UserOrderTest2",
+    "password": "password2!"
+}
+
+> {%
+    client.test("유저 로그인", function () {
+        client.assert(response.status === 200, "유저 로그인 실패");
+        client.global.set("user_token", response.body.data.accessToken);
+    });
+%}
+
+### 3-1. 식당용 상품 등록
+POST http://{{host}}:{{gatewayPort}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{owner_token}}
+
+{
+    "restaurantId": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "오더용 미슐랭 예약 한정 코스",
+    "category": "MEALKIT",
+    "basePrice": 100000,
+    "attributes": {},
+    "exhibition": {
+        "startAt": "2024-01-01T00:00:00",
+        "endAt": "2099-12-31T23:59:59"
+    },
+    "options": [
+        {
+            "name": "미슐랭 스페셜 코스",
+            "addPrice": 0,
+            "totalQuantity": 50,
+            "dailyLimit": 10,
+            "maxLimit": 4
+        },
+        {
+            "name": "추가 와인 페어링",
+            "addPrice": 50000,
+            "totalQuantity": 50,
+            "dailyLimit": 10,
+            "maxLimit": 4
+        }
+    ]
+}
+
+> {%
+    client.test("상품 등록 성공", function () {
+        client.assert(response.status === 200, "상품 등록 실패");
+        var data = response.body.data;
+        client.global.set("product_id", data.productId);
+        client.global.set("option_id_1", data.options[0].optionId);
+        client.global.set("option_id_2", data.options[1].optionId);
+        client.global.set("restaurant_id", "550e8400-e29b-41d4-a716-446655440000");
+    });
+%}
+
+### 4-1. 레스토랑 예약 생성 (USER)
+# 예약 서비스의 VALIDATION 규격에 맞게 body 및 대기열 토큰 추가
+POST http://{{host}}:{{gatewayPort}}/api/v1/reservations
+Content-Type: application/json
+Authorization: Bearer {{user_token}}
+X-Waiting-Token: dummy-token
+
+{
+    "restaurantId": "{{restaurant_id}}",
+    "timeSlotId": "{{time_slot_id}}",
+    "reservedDate": "2026-06-13",
+    "slotStartTime": "18:00:00",
+    "guestCount": 2,
+    "courses": [
+        {
+            "courseId": "{{course_id}}",
+            "quantity": 1,
+            "unitPrice": 100000
+        }
+    ]
+}
+
+> {%
+    client.test("예약 생성", function () {
+        client.assert(response.status === 200 || response.status === 201, "예약 실패 (503 에러 시 1분 대기)");
+        client.global.set("reservation_id", response.body.data.reservationId);
+    });
+%}
+
+### 4-2. 주문 요청 (단일 상품 - 수동 이름 입력)
+POST http://{{host}}:{{gatewayPort}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{user_token}}
+
+{
+    "restaurantId": "{{restaurant_id}}",
+    "reservationId": "{{reservation_id}}",
+    "orderName": "미슐랭 코스 커스텀 이름",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [
+        {
+            "optionId": "{{option_id_1}}",
+            "quantity": 1
+        }
+    ]
+}
+
+> {%
+    client.test("주문 생성 완료", function () {
+        client.assert(response.status === 200 || response.status === 201, "주문 실패");
+    });
+%}
+
+### 4-3. 다중 주문 요청 (이름 자동 생성 테스트 - "외 N건")
+# 4-2에서 예약을 사용했다면, 4-1을 다시 실행하여 새로운 reservation_id를 획득 후 실행해야 함
+POST http://{{host}}:{{gatewayPort}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{user_token}}
+
+{
+    "restaurantId": "{{restaurant_id}}",
+    "reservationId": "{{reservation_id}}",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [
+        {
+            "optionId": "{{option_id_1}}",
+            "quantity": 2
+        },
+        {
+            "optionId": "{{option_id_2}}",
+            "quantity": 1
+        }
+    ]
+}
+
+> {%
+    client.test("시스템 자동 이름 생성 확인 (상품 외 N건)", function () {
+        client.assert(response.status === 200 || response.status === 201, "주문 생성 실패");
+        var generatedName = response.body.data.orderName;
+        client.assert(generatedName === "미슐랭 스페셜 코스 외 1건", "자동 생성 이름 오류: " + generatedName);
+        client.log("다중 품목 자동 이름 생성 성공: " + generatedName);
+    });
+%}

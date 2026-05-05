@@ -51,6 +51,8 @@ dependencies {
     testImplementation 'com.h2database:h2' // 테스트용 메모리 DB 추가
 
     implementation 'com.github.Miche-Let:common:dev-SNAPSHOT'
+    implementation 'com.github.Miche-Let:common-auth-webmvc:0.1.5'
+    implementation 'com.github.Miche-Let:common-auth-feign:0.1.2'
 
     implementation 'org.springframework.boot:spring-boot-starter-security'
 }

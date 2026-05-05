@@ -4,8 +4,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
-import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
@@ -15,9 +13,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.michelet.common.auth.core.context.UserContext;
+import com.michelet.common.auth.core.enums.UserRole;
+import com.michelet.common.auth.webmvc.context.UserContextHolder;
 import com.michelet.order.application.OrderCommandService;
 import com.michelet.order.application.dto.OrderResult;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +47,16 @@ public class OrderControllerTest {
     @MockitoBean
     private OrderCommandService orderCommandService;
 
+    @BeforeEach
+    void setUp() {
+        UserContextHolder.set(new UserContext("123", UserRole.USER));
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
+    }
+
     @Test
     @DisplayName("상태 확인: 서비스가 정상 동작하면 200을 반환한다")
     void healthCheck() throws Exception {
@@ -64,50 +77,40 @@ public class OrderControllerTest {
         // given
         UUID mockOrderId = UUID.randomUUID();
         given(orderCommandService.createOrder(any()))
-            .willReturn(new OrderResult(mockOrderId, "OCCUPIED"));
+            .willReturn(new OrderResult(mockOrderId, "OCCUPIED", "미슐랭 코스 외 1건"));
 
         String requestJson = """
             {
                 "reservationId": "550e8400-e29b-41d4-a716-446655440002",
                 "restaurantId": "550e8400-e29b-41d4-a716-446655440003",
                 "orderName": "치킨 외 1건",
-                "reservedDate": "2026-05-01",
                 "receivingMethod": "PICKUP",
                 "expiredAt": "2026-05-01T20:00:00",
                 "items": [
                     {
                         "optionId": "550e8400-e29b-41d4-a716-446655440001",
-                        "productName": "치킨",
-                        "orderPrice": 20000,
                         "quantity": 2
                     }
                 ]
             }
             """;
 
+        // UserContextHolder를 사용하므로 더 이상 헤더 파라미터가 필요 없음
         mockMvc.perform(post("/api/v1/orders")
-                .header("X-User-Id", "550e8400-e29b-41d4-a716-446655440000") // 헤더 추가
                 .content(requestJson)
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.data.orderId").value(mockOrderId.toString()))
             .andDo(document("{class-name}/{method-name}",
-                requestHeaders(
-                    headerWithName("X-User-Id").description("사용자 식별 ID")
-                ),
                 requestFields(
                     fieldWithPath("reservationId").type(JsonFieldType.STRING).description("예약 식별 ID"),
                     fieldWithPath("restaurantId").type(JsonFieldType.STRING).description("식당 ID"),
-                    fieldWithPath("orderName").type(JsonFieldType.STRING).description("주문 요약 제목"),
-                    fieldWithPath("reservedDate").type(JsonFieldType.STRING).description("예약 날짜 (YYYY-MM-DD)"),
-                    fieldWithPath("receivingMethod").type(JsonFieldType.STRING).description("수령 방법 (PICKUP/SHIPPING)")
-                        .optional(),
+                    fieldWithPath("orderName").type(JsonFieldType.STRING).description("주문 요약 제목").optional(),
+                    fieldWithPath("receivingMethod").type(JsonFieldType.STRING).description("수령 방법 (PICKUP/SHIPPING)"),
                     fieldWithPath("expiredAt").type(JsonFieldType.STRING).description("수령 기한 (YYYY-MM-DDTHH:mm:ss)"),
                     fieldWithPath("items").type(JsonFieldType.ARRAY).description("주문 항목 리스트"),
                     fieldWithPath("items[].optionId").type(JsonFieldType.STRING).description("상품 옵션 ID"),
-                    fieldWithPath("items[].productName").type(JsonFieldType.STRING).description("주문 시점 상품명"),
-                    fieldWithPath("items[].orderPrice").type(JsonFieldType.NUMBER).description("주문 시점 가격"),
                     fieldWithPath("items[].quantity").type(JsonFieldType.NUMBER).description("주문 수량")
                 ),
                 responseFields(
@@ -117,7 +120,8 @@ public class OrderControllerTest {
                     fieldWithPath("timestamp").type(JsonFieldType.STRING).description("응답 시간"),
                     fieldWithPath("traceId").type(JsonFieldType.STRING).description("추적 ID").optional(),
                     fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드").optional(),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지").optional()
+                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지").optional(),
+                    fieldWithPath("data.orderName").type(JsonFieldType.STRING).description("자동 생성된 주문명")
                 )
             ));
     }
@@ -128,13 +132,11 @@ public class OrderControllerTest {
         String invalidJson = "{\"reservationId\": null}";
 
         mockMvc.perform(post("/api/v1/orders")
-                .header("X-User-Id", "550e8400-e29b-41d4-a716-446655440000") // 헤더 부재로 인한 400을 피하기 위해 정상 헤더 세팅
                 .content(invalidJson)
                 .contentType(MediaType.APPLICATION_JSON))
             .andExpect(status().isBadRequest())
             .andDo(document("{class-name}/{method-name}"));
 
-        // Validation 실패 시 Service 레이어가 호출되지 않음을 검증
         verify(orderCommandService, never()).createOrder(any());
     }
 }
