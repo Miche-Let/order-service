@@ -1,32 +1,48 @@
 package com.michelet.order.infrastructure.config;
 
+import com.michelet.common.auth.webmvc.filter.InternalAuthFilter;
+import com.michelet.common.auth.webmvc.internal.InternalTokenProvider;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.util.AntPathMatcher;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
+    @Value("${spring.application.name:order-service}")
+    private String applicationName;
+
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, InternalTokenProvider tokenProvider) throws Exception {
+
+        InternalAuthFilter cleanInternalFilter = new InternalAuthFilter(tokenProvider, applicationName) {
+            private final AntPathMatcher pathMatcher = new AntPathMatcher();
+
+            @Override
+            protected boolean shouldNotFilter(HttpServletRequest request) {
+                String path = request.getServletPath();
+                return !pathMatcher.match("/internal/**", path);
+            }
+        };
+
         http
             .csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
-            // TODO: JWT 도입 시 SessionCreationPolicy.STATELESS 설정 추가 필요
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/v1/orders/health", "/internal/**").permitAll()
-                // TODO: 현재는 별도의 인증 필터가 없으므로 모든 요청이 차단될 수 있음
-                // 테스트 시에는 임시로 permitAll()을 사용하거나, 인증 필터 구현 후 사용
-                .anyRequest().authenticated()
-            );
-
-        // TODO: JwtAuthenticationFilter 구현 후 여기에 필터 등록 필요
-        // http.addFilterBefore(new JwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+                .anyRequest().permitAll()
+            )
+            .addFilterBefore(cleanInternalFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
