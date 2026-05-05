@@ -6,6 +6,7 @@ import com.michelet.order.application.OrderCommandService;
 import com.michelet.order.application.dto.OrderResult;
 import com.michelet.order.presentation.dto.CreateOrderRequest;
 import jakarta.validation.Valid;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -42,7 +43,7 @@ public class OrderController {
         try {
             userUuid = UUID.fromString(userIdStr); // 정상적인 UUID 포맷일 경우
         } catch (IllegalArgumentException e) {
-            userUuid = UUID.nameUUIDFromBytes(userIdStr.getBytes()); // 일반 문자열일 경우의 폴백
+            userUuid = UUID.nameUUIDFromBytes(userIdStr.getBytes(StandardCharsets.UTF_8)); // 일반 문자열일 경우의 폴백
         }
 
         OrderResult result = orderCommandService.createOrder(request.toCommand(userUuid));
