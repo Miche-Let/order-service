@@ -18,8 +18,9 @@ public class AuditorConfig {
     public AuditorAware<UUID> auditorAware() {
         return () -> {
             try {
-                if (UserContextHolder.get() != null && UserContextHolder.get().userId() != null) {
-                    String userIdStr = UserContextHolder.get().userId();
+                var userContext = UserContextHolder.get();
+                if (userContext != null && userContext.userId() != null) {
+                    String userIdStr = userContext.userId();
 
                     try {
                         // 이미 정상적인 UUID 문자열이면 그대로 파싱
