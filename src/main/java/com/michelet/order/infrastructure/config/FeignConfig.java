@@ -30,7 +30,7 @@ public class FeignConfig {
             template.header("X-User-Role", "SYSTEM");
             template.header("X-User-Id", "order-service");
 
-            log.info("[Feign] Internal Auth Header Injected for: {}", targetService);
+            log.debug("[Feign] Internal Auth Header Injected for: {}", targetService);
         };
     }
 
