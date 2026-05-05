@@ -23,3 +23,9 @@ spring:
             ddl-auto: create-drop
 #    main:
 #        allow-bean-definition-overriding: true # 혹시 모를 빈 중복 방어
+
+internal:
+    auth:
+        secret: ${INTERNAL_AUTH_SECRET:michelet-internal-auth-secret-key-a8K2mQ9xLp4Vt7Rz1Nc}
+jwt:
+    secret: ${JWT_SECRET:michelet-secret-key-for-authentication}

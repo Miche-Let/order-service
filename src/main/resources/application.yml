@@ -11,3 +11,30 @@ spring:
 
 server:
     port: 19700
+
+internal:
+    auth:
+        secret: ${INTERNAL_AUTH_SECRET}
+jwt:
+    secret: ${JWT_SECRET}
+
+# Feign Client 목적지 URL 설정
+client:
+    reservation-service:
+        url: ${RESERVATION_SERVICE_URL:http://localhost:19500}
+    inventory-service:
+        url: ${INVENTORY_SERVICE_URL:http://localhost:19900}
+    catalog-service:
+        url: ${CATALOG_SERVICE_URL:http://localhost:19800}
+
+kafka:
+    producer:
+        key-serializer: org.apache.kafka.common.serialization.StringSerializer
+        value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+        acks: all                                 # 모든 ISR 복제본으로부터 ack 수신 후 성공 처리
+        retries: 3                                # 일시적 오류 시 최대 3회 재시도
+        properties:
+            enable.idempotence: true              # 재시도로 인한 중복 메시지 방지 (exactly-once)
+            max.in.flight.requests.per.connection: 5
+            retry.backoff.ms: 1000
+            max.block.ms: 3000
