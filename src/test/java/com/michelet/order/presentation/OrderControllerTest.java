@@ -15,9 +15,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.michelet.common.auth.core.context.UserContext;
+import com.michelet.common.auth.core.enums.UserRole;
+import com.michelet.common.auth.webmvc.context.UserContextHolder;
 import com.michelet.order.application.OrderCommandService;
 import com.michelet.order.application.dto.OrderResult;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +49,16 @@ public class OrderControllerTest {
     @MockitoBean
     private OrderCommandService orderCommandService;
 
+    @BeforeEach
+    void setUp() {
+        UserContextHolder.set(new UserContext("123", UserRole.USER));
+    }
+
+    @AfterEach
+    void tearDown() {
+        UserContextHolder.clear();
+    }
+
     @Test
     @DisplayName("상태 확인: 서비스가 정상 동작하면 200을 반환한다")
     void healthCheck() throws Exception {
@@ -64,7 +79,7 @@ public class OrderControllerTest {
         // given
         UUID mockOrderId = UUID.randomUUID();
         given(orderCommandService.createOrder(any()))
-            .willReturn(new OrderResult(mockOrderId, "OCCUPIED"));
+            .willReturn(new OrderResult(mockOrderId, "OCCUPIED", "미슐랭 코스 외 1건"));
 
         String requestJson = """
             {
@@ -117,7 +132,8 @@ public class OrderControllerTest {
                     fieldWithPath("timestamp").type(JsonFieldType.STRING).description("응답 시간"),
                     fieldWithPath("traceId").type(JsonFieldType.STRING).description("추적 ID").optional(),
                     fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드").optional(),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지").optional()
+                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지").optional(),
+                    fieldWithPath("data.orderName").type(JsonFieldType.STRING).description("자동 생성된 주문명")
                 )
             ));
     }
