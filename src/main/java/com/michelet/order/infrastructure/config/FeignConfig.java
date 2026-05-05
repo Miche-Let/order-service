@@ -37,11 +37,20 @@ public class FeignConfig {
     @Bean
     public ErrorDecoder errorDecoder() {
         return (methodKey, response) -> {
-            log.error("Feign 통신 에러: Method={}, Status={}", methodKey, response.status());
-            if (response.status() >= 400 && response.status() < 500) {
-                return new IllegalArgumentException("외부 서비스 요청이 거부되었습니다. (4xx)");
+            int status = response.status();
+            String reason = response.reason() != null ? response.reason() : "Unknown";
+
+            log.error("Feign 통신 에러: Method={}, Status={}, Reason={}", methodKey, status, reason);
+
+            if (status >= 300 && status < 400) {
+                return new RuntimeException("리다이렉트 응답(3xx): status=" + status + ", reason=" + reason);
+            } else if (status >= 400 && status < 500) {
+                return new IllegalArgumentException("클라이언트 오류(4xx): status=" + status + ", reason=" + reason);
+            } else if (status >= 500) {
+                return new RuntimeException("서버 오류(5xx): status=" + status + ", reason=" + reason);
             }
-            return new RuntimeException("외부 서비스 처리 중 서버 오류가 발생했습니다. (5xx)");
+
+            return new RuntimeException("알 수 없는 통신 오류: status=" + status + ", reason=" + reason);
         };
     }
 }
