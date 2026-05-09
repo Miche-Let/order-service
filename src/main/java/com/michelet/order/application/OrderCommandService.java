@@ -141,6 +141,8 @@ public class OrderCommandService {
         order.cancel(LocalDate.now());
 
         // 동기 Feign 호출로 재고 복구 (향후 Outbox 패턴으로 전환 예정)
+        // 실패한 아이템 전체를 수집 후 한 번에 예외 발생 (부분 실패 관측성 향상)
+        List<UUID> failedOptionIds = new ArrayList<>();
         for (OrderItem item : order.getOrderItems()) {
             try {
                 inventoryClient.restoreStock(
@@ -148,8 +150,13 @@ public class OrderCommandService {
                 log.info("주문 취소로 인한 재고 복구 완료: optionId={}, quantity={}", item.getOptionId(), item.getQuantity());
             } catch (Exception e) {
                 log.error("주문 취소에 따른 재고 복구 실패 (데이터 불일치 위험): optionId={}", item.getOptionId(), e);
-                throw new IllegalStateException("재고 복구 통신 중 오류가 발생하여 취소할 수 없습니다.", e);
+                failedOptionIds.add(item.getOptionId());
             }
+        }
+
+        if (!failedOptionIds.isEmpty()) {
+            throw new IllegalStateException(
+                "재고 복구 통신 중 오류가 발생하여 취소할 수 없습니다. 실패한 optionIds: " + failedOptionIds);
         }
     }
 
