@@ -48,19 +48,31 @@ class OrderTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
 
         Order order2 = createDefaultOrder();
-        order2.cancel();
+        order2.cancel(LocalDate.now());
         assertThat(order2.getStatus()).isEqualTo(OrderStatus.CANCELED);
     }
 
     @Test
-    @DisplayName("실패: 이미 완료되거나 취소된 주문은 상태를 변경할 수 없다")
+    @DisplayName("실패: 이미 취소되거나 수령 완료된 주문은 상태를 변경할 수 없다")
     void statusTransition_Fail() {
+        // 1. 이미 취소된 주문을 다시 완료(complete) 처리 하려는 경우
         // given
         Order order = createDefaultOrder();
-        order.complete();
+        order.cancel(LocalDate.now());
 
         // when & then
-        assertThatThrownBy(order::cancel)
+        assertThatThrownBy(order::complete)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("주문 완료가 불가능한 상태입니다.");
+
+        // 2. 이미 수령 완료된 주문을 취소(cancel) 하려는 경우
+        // given
+        Order order2 = createDefaultOrderForToday(); // 수령은 '당일'만 가능하므로 별도 생성
+        order2.complete();
+        order2.receive(LocalDate.now());
+
+        // when & then
+        assertThatThrownBy(() -> order2.cancel(LocalDate.now()))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("주문 취소가 불가능한 상태입니다.");
     }
@@ -72,7 +84,21 @@ class OrderTest {
             UUID.randomUUID(),
             UUID.randomUUID(),
             "테스트 주문",
-            LocalDate.now(),
+            LocalDate.now().plusDays(1), // 방문 예정일을 '내일'로 설정하여 오늘 취소 가능하도록 보장
+            ReceivingMethod.PICKUP,
+            LocalDateTime.now().plusHours(2),
+            List.of(item));
+    }
+
+    // 수령(receive) 테스트를 위한 오늘 날짜 예약 생성 헬퍼
+    private Order createDefaultOrderForToday() {
+        OrderItem item = OrderItem.create(UUID.randomUUID(), "당일상품", new BigDecimal("1000"), 1);
+        return Order.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "오늘 주문",
+            LocalDate.now(), // 오늘 날짜
             ReceivingMethod.PICKUP,
             LocalDateTime.now().plusHours(2),
             List.of(item));
@@ -83,7 +109,7 @@ class OrderTest {
     void statusTransition_Fail_CanceledToCompleted() {
         // given
         Order order = createDefaultOrder();
-        order.cancel();
+        order.cancel(LocalDate.now());
 
         // when & then
         assertThatThrownBy(order::complete)
