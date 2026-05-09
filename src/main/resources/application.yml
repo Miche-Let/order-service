@@ -39,6 +39,17 @@ client:
     catalog-service:
         url: ${CATALOG_SERVICE_URL:http://localhost:19800}
 
+# 외부 API(Feign) 호출 시 무한 대기(블로킹) 방지용 타임아웃 설정 추가
+feign:
+    client:
+        config:
+            default:
+                connectTimeout: 1000   # 기본 연결 타임아웃: 1초
+                readTimeout: 3000      # 기본 읽기 타임아웃: 3초
+            inventory-service: # Inventory 서비스 전용 특별 타임아웃 (@FeignClient의 name과 일치해야 함)
+                connectTimeout: 500
+                readTimeout: 2000
+
 logging:
     level:
         root: INFO
