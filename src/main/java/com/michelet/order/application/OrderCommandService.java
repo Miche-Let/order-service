@@ -12,6 +12,7 @@ import com.michelet.order.infrastructure.client.ReservationClient;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -126,5 +127,59 @@ public class OrderCommandService {
             }
             throw e;
         }
+    }
+
+    public void cancelOrder(UUID orderId, UUID userId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        if (!order.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("본인의 주문만 취소할 수 있습니다.");
+        }
+
+        // 방문 예정일 이전인지 확인하고 상태 변경 (현재 시점 전달)
+        order.cancel(LocalDate.now());
+
+        // 동기 Feign 호출로 재고 복구 (향후 Outbox 패턴으로 전환 예정)
+        // 실패한 아이템 전체를 수집 후 한 번에 예외 발생 (부분 실패 관측성 향상)
+        List<UUID> failedOptionIds = new ArrayList<>();
+        for (OrderItem item : order.getOrderItems()) {
+            try {
+                inventoryClient.restoreStock(
+                    new InventoryClient.RestoreStockRequest(item.getOptionId(), item.getQuantity()));
+                log.info("주문 취소로 인한 재고 복구 완료: optionId={}, quantity={}", item.getOptionId(), item.getQuantity());
+            } catch (Exception e) {
+                log.error("주문 취소에 따른 재고 복구 실패 (데이터 불일치 위험): optionId={}", item.getOptionId(), e);
+                failedOptionIds.add(item.getOptionId());
+            }
+        }
+
+        if (!failedOptionIds.isEmpty()) {
+            throw new IllegalStateException(
+                "재고 복구 통신 중 오류가 발생하여 취소할 수 없습니다. 실패한 optionIds: " + failedOptionIds);
+        }
+    }
+
+    // TODO: 향후 결제 시스템 연동 완료 시, 클라이언트 직접 호출이 아닌 Kafka 결제 완료 이벤트 리스너에서 호출하도록 변경
+    public void completeOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        order.complete();
+    }
+
+    public void receiveOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        // 방문 예정 당일인지 확인하고 상태를 RECEIVED로 변경
+        // 추후 Outbox를 활용하여 리뷰/통계 이벤트를 발행할 예정
+        order.receive(LocalDate.now());
+    }
+
+    @Transactional(readOnly = true)
+    public OrderResult getOrder(UUID orderId) {
+        Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+        return new OrderResult(order.getId(), order.getStatus().name(), order.getOrderName());
     }
 }

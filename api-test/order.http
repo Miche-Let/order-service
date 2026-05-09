@@ -1,89 +1,142 @@
-### 환경 변수 설정
-@host = localhost
-@gatewayPort = 19000
-@orderPort = 19700
+### 환경변수 설정
+@gatewayUrl = http://localhost:19000
+# 취소 검증을 위한 미래 날짜 (레스토랑 1)
+@ord_targetDate_cancel = 2026-05-15
+# 수령 완료 검증을 위한 오늘 날짜 (시스템 기준 5월 9일, 레스토랑 2)
+@ord_targetDate_receive = 2026-05-09
+@ord_courseUnitPrice = 100000.00
 
-# 예약 서비스에서 요구하는 더미 데이터 (reservation.http 기준)
-@time_slot_id = 33333333-3333-3333-3333-333333333333
-@course_id = 44444444-4444-4444-4444-444444444444
+# 슬롯 시작, 끝 시간. 테스트할때마다 수정할것!
+@openTime = 23:20:00
+@closeTime = 23:45:00
 
-### 0. [Test] 내부 API용 테스트 JWT 토큰 발급 (로컬 전용)
-GET http://{{host}}:{{orderPort}}/test/internal-token
-
-
-> {%
-    client.test("내부 토큰 획득 성공", function () {
-        client.assert(response.status === 200, "내부 토큰 발급 실패");
-        client.global.set("internal_token", response.body);
-    });
-%}
-
-### 1-1. OWNER 회원가입
-POST http://{{host}}:{{gatewayPort}}/api/v1/users/signup
+### 1. OWNER 회원가입
+POST {{gatewayUrl}}/api/v1/users/signup
 Content-Type: application/json
 
 {
-    "loginId": "OwnerOrderTest",
-    "password": "password1!",
-    "name": "식당사장님",
-    "email": "owner_order@test.com",
-    "phone": "010-9999-9999",
+    "loginId": "test902",
+    "password": "test123!02",
+    "name": "owner902",
+    "email": "owner00902@naver.com",
+    "phone": "010-0000-9999",
     "userRole": "OWNER"
 }
 
-### 1-2. OWNER 로그인
-POST http://{{host}}:{{gatewayPort}}/api/v1/auth/login
+### 2. OWNER 로그인
+POST {{gatewayUrl}}/api/v1/auth/login
 Content-Type: application/json
 
 {
-    "loginId": "OwnerOrderTest",
-    "password": "password1!"
+    "loginId": "test902",
+    "password": "test123!02"
 }
 
 > {%
-    client.test("오너 로그인", function () {
-        client.assert(response.status === 200, "오너 로그인 실패");
-        client.global.set("owner_token", response.body.data.accessToken);
+    client.test("오너 로그인 검증", function () {
+        client.assert(response.status === 200, "로그인 실패!");
+        client.global.set("ord_ownerToken", response.body.data.accessToken);
+        client.log("전역변수 저장: ord_ownerToken");
     });
 %}
 
-### 2-1. USER 회원가입
-POST http://{{host}}:{{gatewayPort}}/api/v1/users/signup
+### 3. USER 회원가입
+POST {{gatewayUrl}}/api/v1/users/signup
 Content-Type: application/json
 
 {
-    "loginId": "UserOrderTest2",
-    "password": "password2!",
-    "name": "일반사용자2",
-    "email": "user_order2@test.com",
-    "phone": "010-1234-5672",
+    "loginId": "test95",
+    "password": "test123!5",
+    "name": "user95",
+    "email": "user0095@naver.com",
+    "phone": "010-1000-2005",
     "userRole": "USER"
 }
 
-### 2-2. USER 로그인
-POST http://{{host}}:{{gatewayPort}}/api/v1/auth/login
+### 4. USER 로그인
+POST {{gatewayUrl}}/api/v1/auth/login
 Content-Type: application/json
 
 {
-    "loginId": "UserOrderTest2",
-    "password": "password2!"
+    "loginId": "test95",
+    "password": "test123!5"
 }
 
 > {%
-    client.test("유저 로그인", function () {
-        client.assert(response.status === 200, "유저 로그인 실패");
-        client.global.set("user_token", response.body.data.accessToken);
+    client.test("유저 로그인 검증", function () {
+        client.assert(response.status === 200, "로그인 실패!");
+        client.global.set("ord_userToken", response.body.data.accessToken);
+        client.log("전역변수 저장: ord_userToken");
     });
 %}
 
-### 3-1. 식당용 상품 등록
-POST http://{{host}}:{{gatewayPort}}/api/v1/products
+### 5-1. 식당 1 등록 (Owner) [기초 데이터 세팅] 레스토랑 1 (취소 테스트용)
+POST {{gatewayUrl}}/api/v1/restaurants
 Content-Type: application/json
-Authorization: Bearer {{owner_token}}
+Authorization: Bearer {{ord_ownerToken}}
 
 {
-    "restaurantId": "550e8400-e29b-41d4-a716-446655440000",
-    "name": "오더용 미슐랭 예약 한정 코스",
+    "name": "MicheLet Dining 1 (취소용)",
+    "address": "서울특별시 강남구 테헤란로 123",
+    "phone": "02-1234-1111",
+    "description": "파인다이닝 레스토랑 1",
+    "reservationOpenAt": "10:00:00",
+    "avgMealDurationMin": 90,
+    "status": "OPEN",
+    "businessHours": "MON-FRI 11:00-24:00 / SAT,SUN CLOSED"
+}
+
+> {%
+    client.global.set("ord_restaurantId_1", response.body.data.restaurantId);
+    client.log("전역변수 저장: ord_restaurantId_1 = " + response.body.data.restaurantId);
+%}
+
+### 6-1. 코스 1 등록 (Owner)
+POST {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_1}}/courses
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "name": "Dinner Course 1",
+    "price": 150000,
+    "sessionType": "DINNER",
+    "status": "AVAILABLE",
+    "menus": [
+        {
+            "coursePart": "MAIN",
+            "menuName": "양갈비",
+            "sortOrder": 4
+        }
+    ]
+}
+
+> {%
+    client.global.set("ord_courseId_1", response.body.data.courseId);
+    client.log("전역변수 저장: ord_courseId_1 = " + response.body.data.courseId);
+%}
+
+### 7-1. 타임슬롯 1 일괄 생성 (Owner) - 취소용 날짜
+POST {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_1}}/time-slots/bulk
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "startDate": "{{ord_targetDate_cancel}}",
+    "endDate": "{{ord_targetDate_cancel}}",
+    "openTime": "{{openTime}}",
+    "closeTime": "{{closeTime}}",
+    "intervalMinutes": 10,
+    "capacity": 4
+}
+
+### 8-1. 오더 테스트용 상품 1 등록 (Owner)
+POST {{gatewayUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "restaurantId": "{{ord_restaurantId_1}}",
+    "name": "오더용 미슐랭 1 예약 한정 코스",
     "category": "MEALKIT",
     "basePrice": 100000,
     "attributes": {},
@@ -92,116 +145,301 @@ Authorization: Bearer {{owner_token}}
         "endAt": "2099-12-31T23:59:59"
     },
     "options": [
+        { "name": "미슐랭 스페셜 코스 1", "addPrice": 0, "totalQuantity": 50, "dailyLimit": 10, "maxLimit": 4 }
+    ]
+}
+
+> {%
+    client.global.set("ord_product_id_1", response.body.data.productId);
+    client.global.set("ord_option_id_1_1", response.body.data.options[0].optionId);
+    client.log("전역변수 저장: ord_product_id_1 = " + response.body.data.productId);
+    client.log("전역변수 저장: ord_option_id_1_1 = " + response.body.data.options[0].optionId);
+%}
+
+### 9-1. 대기열 1 입장 (User)
+POST {{gatewayUrl}}/api/v1/waitings
+Content-Type: application/json
+Authorization: Bearer {{ord_userToken}}
+
+{ "restaurantId": "{{ord_restaurantId_1}}" }
+
+> {%
+    client.global.set("ord_waitingToken_1", response.body.data.token);
+    client.log("전역변수 저장: ord_waitingToken_1 = " + response.body.data.token);
+%}
+
+### 5-2. 식당 2 등록 (Owner) [기초 데이터 세팅] 레스토랑 2 (수령 테스트용)
+POST {{gatewayUrl}}/api/v1/restaurants
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "name": "MicheLet Dining 2 (수령용)",
+    "address": "서울특별시 강남구 테헤란로 456",
+    "phone": "02-1234-2222",
+    "description": "파인다이닝 레스토랑 2",
+    "reservationOpenAt": "10:00:00",
+    "avgMealDurationMin": 90,
+    "status": "OPEN",
+    "businessHours": "MON-FRI 11:00-22:00 / SAT,SUN CLOSED"
+}
+
+> {%
+    client.global.set("ord_restaurantId_2", response.body.data.restaurantId);
+    client.log("전역변수 저장: ord_restaurantId_2 = " + response.body.data.restaurantId);
+%}
+
+### 6-2. 코스 2 등록 (Owner)
+POST {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_2}}/courses
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "name": "Dinner Course 2",
+    "price": 150000,
+    "sessionType": "DINNER",
+    "status": "AVAILABLE",
+    "menus": [
         {
-            "name": "미슐랭 스페셜 코스",
-            "addPrice": 0,
-            "totalQuantity": 50,
-            "dailyLimit": 10,
-            "maxLimit": 4
-        },
-        {
-            "name": "추가 와인 페어링",
-            "addPrice": 50000,
-            "totalQuantity": 50,
-            "dailyLimit": 10,
-            "maxLimit": 4
+            "coursePart": "MAIN",
+            "menuName": "안심 스테이크",
+            "sortOrder": 4
         }
     ]
 }
 
 > {%
-    client.test("상품 등록 성공", function () {
-        client.assert(response.status === 200, "상품 등록 실패");
-        var data = response.body.data;
-        client.global.set("product_id", data.productId);
-        client.global.set("option_id_1", data.options[0].optionId);
-        client.global.set("option_id_2", data.options[1].optionId);
-        client.global.set("restaurant_id", "550e8400-e29b-41d4-a716-446655440000");
-    });
+    client.global.set("ord_courseId_2", response.body.data.courseId);
+    client.log("전역변수 저장: ord_courseId_2 = " + response.body.data.courseId);
 %}
 
-### 4-1. 레스토랑 예약 생성 (USER)
-# 예약 서비스의 VALIDATION 규격에 맞게 body 및 대기열 토큰 추가
-POST http://{{host}}:{{gatewayPort}}/api/v1/reservations
+### 7-2. 타임슬롯 2 일괄 생성 (Owner) - 수령용 날짜(오늘)
+POST {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_2}}/time-slots/bulk
 Content-Type: application/json
-Authorization: Bearer {{user_token}}
-X-Waiting-Token: dummy-token
+Authorization: Bearer {{ord_ownerToken}}
 
 {
-    "restaurantId": "{{restaurant_id}}",
-    "timeSlotId": "{{time_slot_id}}",
-    "reservedDate": "2026-06-13",
-    "slotStartTime": "18:00:00",
-    "guestCount": 2,
-    "courses": [
-        {
-            "courseId": "{{course_id}}",
-            "quantity": 1,
-            "unitPrice": 100000
-        }
+    "startDate": "{{ord_targetDate_receive}}",
+    "endDate": "{{ord_targetDate_receive}}",
+    "openTime": "{{openTime}}",
+    "closeTime": "{{closeTime}}",
+    "intervalMinutes": 10,
+    "capacity": 4
+}
+
+### 8-2. 오더 테스트용 상품 2 등록 (Owner)
+POST {{gatewayUrl}}/api/v1/products
+Content-Type: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+{
+    "restaurantId": "{{ord_restaurantId_2}}",
+    "name": "오더용 미슐랭 2 예약 한정 코스",
+    "category": "MEALKIT",
+    "basePrice": 100000,
+    "attributes": {},
+    "exhibition": {
+        "startAt": "2024-01-01T00:00:00",
+        "endAt": "2099-12-31T23:59:59"
+    },
+    "options": [
+        { "name": "미슐랭 스페셜 코스 2", "addPrice": 0, "totalQuantity": 50, "dailyLimit": 10, "maxLimit": 4 },
+        { "name": "추가 와인 페어링 2", "addPrice": 50000, "totalQuantity": 50, "dailyLimit": 10, "maxLimit": 4 }
     ]
 }
 
 > {%
-    client.test("예약 생성", function () {
-        client.assert(response.status === 200 || response.status === 201, "예약 실패 (503 에러 시 1분 대기)");
-        client.global.set("reservation_id", response.body.data.reservationId);
+    client.global.set("ord_product_id_2", response.body.data.productId);
+    client.global.set("ord_option_id_2_1", response.body.data.options[0].optionId);
+    client.global.set("ord_option_id_2_2", response.body.data.options[1].optionId);
+    client.log("전역변수 저장: ord_product_id_2 = " + response.body.data.productId);
+    client.log("전역변수 저장: ord_option_id_2_1 = " + response.body.data.options[0].optionId);
+    client.log("전역변수 저장: ord_option_id_2_2 = " + response.body.data.options[1].optionId);
+%}
+
+### 9-2. 대기열 2 입장 (User)
+POST {{gatewayUrl}}/api/v1/waitings
+Content-Type: application/json
+Authorization: Bearer {{ord_userToken}}
+
+{ "restaurantId": "{{ord_restaurantId_2}}" }
+
+> {%
+    client.global.set("ord_waitingToken_2", response.body.data.token);
+    client.log("전역변수 저장: ord_waitingToken_2 = " + response.body.data.token);
+%}
+
+### 10. 취소용 타임 슬롯 목록 조회 (미래 날짜) [시나리오 1] 레스토랑 1: 미래 날짜(5월 15일) 예약 -> 주문 취소(CANCEL) 검증
+GET {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_1}}/time-slots?targetDate={{ord_targetDate_cancel}}
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    const timeSlots = response.body.data;
+    const openedSlots = timeSlots.filter(slot => slot.status === "OPENED");
+
+    client.test("취소용 슬롯 확인", function () {
+        client.assert(openedSlots.length >= 1, "OPENED 상태의 슬롯이 없습니다!");
+        client.global.set("ord_timeSlotId_cancel", openedSlots[0].timeSlotId);
+        client.global.set("ord_slotStartTime_cancel", openedSlots[0].startTime);
+        client.log("전역변수 저장: ord_timeSlotId_cancel = " + openedSlots[0].timeSlotId);
+        client.log("전역변수 저장: ord_slotStartTime_cancel = " + openedSlots[0].startTime);
     });
 %}
 
-### 4-2. 주문 요청 (단일 상품 - 수동 이름 입력)
-POST http://{{host}}:{{gatewayPort}}/api/v1/orders
+### 11. 예약 1 생성 (레스토랑 1 미래 날짜 슬롯 사용)
+POST {{gatewayUrl}}/api/v1/reservations
+Authorization: Bearer {{ord_userToken}}
+X-Waiting-Token: {{ord_waitingToken_1}}
 Content-Type: application/json
-Authorization: Bearer {{user_token}}
 
 {
-    "restaurantId": "{{restaurant_id}}",
-    "reservationId": "{{reservation_id}}",
-    "orderName": "미슐랭 코스 커스텀 이름",
+  "restaurantId": "{{ord_restaurantId_1}}",
+  "timeSlotId": "{{ord_timeSlotId_cancel}}",
+  "reservedDate": "{{ord_targetDate_cancel}}",
+  "slotStartTime": "{{ord_slotStartTime_cancel}}",
+  "guestCount": 2,
+  "courses": [ { "courseId": "{{ord_courseId_1}}", "quantity": 2, "unitPrice": {{ord_courseUnitPrice}} } ]
+}
+
+> {%
+    client.global.set("ord_reservation_cancel", response.body.data.reservationId);
+    client.log("전역변수 저장: ord_reservation_cancel = " + response.body.data.reservationId);
+%}
+
+### 12. 주문 1 생성 (예약 1 사용)
+POST {{gatewayUrl}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{ord_userToken}}
+
+{
+    "restaurantId": "{{ord_restaurantId_1}}",
+    "reservationId": "{{ord_reservation_cancel}}",
+    "orderName": "미슐랭 코스 취소용 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [ { "optionId": "{{ord_option_id_1_1}}", "quantity": 1 } ]
+}
+
+> {%
+    client.global.set("ord_canceled_order_id", response.body.data.orderId);
+    client.log("전역변수 저장: ord_canceled_order_id = " + response.body.data.orderId);
+%}
+
+### 13. [Update] 주문 1 단건 취소 (USER 본인 권한)
+PATCH {{gatewayUrl}}/api/v1/orders/{{ord_canceled_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
+
+### 14. [검증] 취소된 주문 1 상태 확인 (CANCELED)
+GET {{gatewayUrl}}/api/v1/orders/{{ord_canceled_order_id}}
+Accept: application/json
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    client.test("주문 상태 CANCELED 전이 완벽 확인", function () {
+        client.assert(response.body.data.status === "CANCELED", "주문이 CANCELED 상태가 아닙니다!");
+        client.log("성공! 주문 1 CANCELED 검증 완료");
+    });
+%}
+
+### 15. 수령용 타임 슬롯 목록 조회 (오늘 날짜) [시나리오 2] 레스토랑 2: 오늘 날짜(5월 9일) 예약 -> 수령 완료(RECEIVE) 검증
+GET {{gatewayUrl}}/api/v1/restaurants/{{ord_restaurantId_2}}/time-slots?targetDate={{ord_targetDate_receive}}
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    const timeSlots = response.body.data;
+    client.log("현재 서버에서 내려온 슬롯 데이터: " + JSON.stringify(timeSlots));
+    const openedSlots = timeSlots.filter(slot => slot.status === "OPENED");
+
+    client.test("수령용 슬롯 확인", function () {
+        client.assert(openedSlots.length >= 1, "OPENED 상태의 슬롯이 없습니다! (생성 시간이 이미 지나간 시간인지 확인하세요)");
+        client.global.set("ord_timeSlotId_receive", openedSlots[0].timeSlotId);
+        client.global.set("ord_slotStartTime_receive", openedSlots[0].startTime);
+        client.log("전역변수 저장: ord_timeSlotId_receive = " + openedSlots[0].timeSlotId);
+        client.log("전역변수 저장: ord_slotStartTime_receive = " + openedSlots[0].startTime);
+    });
+%}
+
+### 16. 예약 2 생성 (레스토랑 2 오늘 날짜 슬롯 사용)
+POST {{gatewayUrl}}/api/v1/reservations
+Authorization: Bearer {{ord_userToken}}
+X-Waiting-Token: {{ord_waitingToken_2}}
+Content-Type: application/json
+
+{
+  "restaurantId": "{{ord_restaurantId_2}}",
+  "timeSlotId": "{{ord_timeSlotId_receive}}",
+  "reservedDate": "{{ord_targetDate_receive}}",
+  "slotStartTime": "{{ord_slotStartTime_receive}}",
+  "guestCount": 2,
+  "courses": [ { "courseId": "{{ord_courseId_2}}", "quantity": 2, "unitPrice": {{ord_courseUnitPrice}} } ]
+}
+
+> {%
+    client.global.set("ord_reservation_receive", response.body.data.reservationId);
+    client.log("전역변수 저장: ord_reservation_receive = " + response.body.data.reservationId);
+%}
+
+### 17. 다중 주문 2 생성 (예약 2 사용 - "외 N건" 검증)
+POST {{gatewayUrl}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{ord_userToken}}
+
+{
+    "restaurantId": "{{ord_restaurantId_2}}",
+    "reservationId": "{{ord_reservation_receive}}",
     "receivingMethod": "PICKUP",
     "expiredAt": "2026-06-01T18:00:00",
     "items": [
-        {
-            "optionId": "{{option_id_1}}",
-            "quantity": 1
-        }
-    ]
-}
-
-> {%
-    client.test("주문 생성 완료", function () {
-        client.assert(response.status === 200 || response.status === 201, "주문 실패");
-    });
-%}
-
-### 4-3. 다중 주문 요청 (이름 자동 생성 테스트 - "외 N건")
-# 4-2에서 예약을 사용했다면, 4-1을 다시 실행하여 새로운 reservation_id를 획득 후 실행해야 함
-POST http://{{host}}:{{gatewayPort}}/api/v1/orders
-Content-Type: application/json
-Authorization: Bearer {{user_token}}
-
-{
-    "restaurantId": "{{restaurant_id}}",
-    "reservationId": "{{reservation_id}}",
-    "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
-    "items": [
-        {
-            "optionId": "{{option_id_1}}",
-            "quantity": 2
-        },
-        {
-            "optionId": "{{option_id_2}}",
-            "quantity": 1
-        }
+        { "optionId": "{{ord_option_id_2_1}}", "quantity": 2 },
+        { "optionId": "{{ord_option_id_2_2}}", "quantity": 1 }
     ]
 }
 
 > {%
     client.test("시스템 자동 이름 생성 확인 (상품 외 N건)", function () {
-        client.assert(response.status === 200 || response.status === 201, "주문 생성 실패");
-        var generatedName = response.body.data.orderName;
-        client.assert(generatedName === "미슐랭 스페셜 코스 외 1건", "자동 생성 이름 오류: " + generatedName);
-        client.log("다중 품목 자동 이름 생성 성공: " + generatedName);
+        client.assert(response.body.data.orderName === "미슐랭 스페셜 코스 2 외 1건", "자동 이름 생성 오류");
+        client.global.set("ord_received_order_id", response.body.data.orderId);
+        client.log("전역변수 저장: ord_received_order_id = " + response.body.data.orderId);
+    });
+%}
+
+### 17-1. [검증] 카프카 비동기 처리 완료 확인 (주문 상태가 확정되었는지 눈으로 확인)
+GET {{gatewayUrl}}/api/v1/orders/{{ord_received_order_id}}
+Accept: application/json
+Authorization: Bearer {{ord_ownerToken}}
+
+> {%
+    client.test("Kafka 비동기 처리 완료 확인", function () {
+        var status = response.body.data.status;
+        // 확정 상태(COMPLETED 또는 OCCUPIED 등)로 바뀌었는지 확인
+        client.log("현재 주문 상태: " + status + " (이 상태가 PENDING이 아니어야 수령 가능)");
+    });
+%}
+
+### 17-2. [Update] 주문 완료 처리 (임시 결제 완료 마킹)
+# 실제로는 결제 모듈 연동 후 이벤트 기반으로 처리될 예정이나, 테스트를 위해 수동 API 호출
+PATCH {{gatewayUrl}}/api/v1/orders/{{ord_received_order_id}}/complete
+Authorization: Bearer {{ord_ownerToken}}
+
+> {%
+    client.test("임시 결제 완료(COMPLETED) 처리 성공", function () {
+        client.assert(response.status === 200, "주문 완료 처리에 실패했습니다!");
+        client.log("주문이 COMPLETED 상태로 전환되었습니다. 이제 수령(RECEIVE)이 가능합니다.");
+    });
+%}
+
+### 18. [Update] 오너 수령 완료 처리 (OWNER 권한)
+PATCH {{gatewayUrl}}/api/v1/orders/{{ord_received_order_id}}/receive
+Authorization: Bearer {{ord_ownerToken}}
+
+### 19. [검증] 수령 완료된 주문 상태 확인 (RECEIVED)
+GET {{gatewayUrl}}/api/v1/orders/{{ord_received_order_id}}
+Accept: application/json
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    client.test("주문 상태 RECEIVED 전이 완벽 확인", function () {
+        client.assert(response.body.data.status === "RECEIVED", "주문이 RECEIVED 상태가 아닙니다!");
+        client.log("성공 - 주문 2 RECEIVED 검증 완료");
     });
 %}

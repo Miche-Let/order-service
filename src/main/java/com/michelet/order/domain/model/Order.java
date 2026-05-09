@@ -112,8 +112,9 @@ public class Order extends BaseEntity {
 
     // 도메인 규칙 검증 헬퍼 메서드 - 종료 상태 확인
     private void verifyNotTerminalState() {
-        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED) {
-            throw new IllegalStateException("완료되거나 취소된 주문의 상품은 변경할 수 없습니다.");
+        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.CANCELED
+            || this.status == OrderStatus.RECEIVED) {
+            throw new IllegalStateException("완료, 수령 완료되거나 취소된 주문의 상품은 변경할 수 없습니다.");
         }
     }
 
@@ -159,10 +160,23 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.COMPLETED;
     }
 
-    public void cancel() {
+    public void cancel(LocalDate currentDate) {
         if (!this.status.canTransitionTo(OrderStatus.CANCELED)) {
             throw new IllegalStateException("주문 취소가 불가능한 상태입니다.");
         }
+        if (!currentDate.isBefore(this.reservedDate)) {
+            throw new IllegalStateException("방문 예정일 이전까지만 취소할 수 있습니다.");
+        }
         this.status = OrderStatus.CANCELED;
+    }
+
+    public void receive(LocalDate currentDate) {
+        if (!this.status.canTransitionTo(OrderStatus.RECEIVED)) {
+            throw new IllegalStateException("수령 완료 처리가 불가능한 상태입니다.");
+        }
+        if (!currentDate.isEqual(this.reservedDate)) {
+            throw new IllegalStateException("방문 예정 당일에만 수령 완료 처리가 가능합니다.");
+        }
+        this.status = OrderStatus.RECEIVED;
     }
 }
