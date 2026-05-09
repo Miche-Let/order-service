@@ -38,3 +38,11 @@ client:
         url: ${INVENTORY_SERVICE_URL:http://localhost:19900}
     catalog-service:
         url: ${CATALOG_SERVICE_URL:http://localhost:19800}
+
+logging:
+    level:
+        root: INFO
+        # 카프카 및 유레카 관련 잡다한 INFO 로그 억제 (경고 이상만 출력)
+        org.apache.kafka: WARN
+        com.netflix.discovery: WARN
+        org.springframework.kafka: WARN
