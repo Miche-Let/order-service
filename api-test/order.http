@@ -7,8 +7,8 @@
 @ord_courseUnitPrice = 100000.00
 
 # 슬롯 시작, 끝 시간. 테스트할때마다 수정할것!
-@openTime = 17:00:00
-@closeTime = 23:00:00
+@openTime = 23:20:00
+@closeTime = 23:45:00
 
 ### 1. OWNER 회원가입
 POST {{gatewayUrl}}/api/v1/users/signup
@@ -125,7 +125,7 @@ Authorization: Bearer {{ord_ownerToken}}
     "endDate": "{{ord_targetDate_cancel}}",
     "openTime": "{{openTime}}",
     "closeTime": "{{closeTime}}",
-    "intervalMinutes": 30,
+    "intervalMinutes": 10,
     "capacity": 4
 }
 
@@ -223,7 +223,7 @@ Authorization: Bearer {{ord_ownerToken}}
     "endDate": "{{ord_targetDate_receive}}",
     "openTime": "{{openTime}}",
     "closeTime": "{{closeTime}}",
-    "intervalMinutes": 30,
+    "intervalMinutes": 10,
     "capacity": 4
 }
 
