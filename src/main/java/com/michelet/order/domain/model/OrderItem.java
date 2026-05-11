@@ -62,7 +62,13 @@ public class OrderItem extends BaseEntity {
         }
         Price validPrice = Price.of(orderPrice);
         Quantity validQuantity = new Quantity(quantity);
-        return new OrderItem(optionId, productName, validPrice.value(), validQuantity.value());
+        
+        return OrderItem.builder()
+            .optionId(optionId)
+            .productName(productName)
+            .orderPrice(validPrice.value())
+            .quantity(validQuantity.value())
+            .build();
     }
 
     protected void assignOrder(Order order) {

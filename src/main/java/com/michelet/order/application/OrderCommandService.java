@@ -2,13 +2,13 @@ package com.michelet.order.application;
 
 import com.michelet.order.application.dto.CreateOrderCommand;
 import com.michelet.order.application.dto.OrderResult;
+import com.michelet.order.application.port.out.ReservationValidationPort;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.model.OrderItem;
 import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.domain.repository.OrderRepository;
 import com.michelet.order.infrastructure.client.CatalogClient;
 import com.michelet.order.infrastructure.client.InventoryClient;
-import com.michelet.order.infrastructure.client.ReservationClient;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class OrderCommandService {
 
     private final OrderRepository orderRepository;
-    private final ReservationClient reservationClient;
+    private final ReservationValidationPort reservationValidationPort;
     private final InventoryClient inventoryClient;
     private final CatalogClient catalogClient;
 
@@ -35,22 +35,12 @@ public class OrderCommandService {
     }
 
     public OrderResult createOrder(CreateOrderCommand command) {
-        // 0. 로컬 DB 중복 주문 방지 (UK)
-        if (orderRepository.existsByReservationId(command.reservationId())) {
-            throw new IllegalStateException("해당 예약으로 이미 생성된 주문이 존재합니다.");
-        }
-
-        // 0-1. 예약 서비스 검증
-        var resResponse = reservationClient.verifyReservation(command.userId(), command.restaurantId());
-        if (resResponse == null || resResponse.data() == null || !resResponse.data().isValid()) {
-            throw new IllegalArgumentException("유효한 예약 내역을 찾을 수 없거나 이미 처리된 예약입니다.");
-        }
-        if (!resResponse.data().reservationId().equals(command.reservationId())) {
-            throw new IllegalArgumentException("요청된 예약 ID가 유효한 예약 정보와 일치하지 않습니다.");
-        }
-
-        // 예약 서비스로부터 받아온 예약날짜
-        LocalDate verifiedDate = resResponse.data().reservationDate();
+        // 전략 패턴을 통한 예약 검증 (프로필에 따라 진짜 또는 가짜 어댑터가 동작함)
+        LocalDate verifiedDate = reservationValidationPort.validateAndGetDate(
+            command.reservationId(),
+            command.userId(),
+            command.restaurantId()
+        );
 
         // 보상 트랜잭션 기록용 리스트 및 주문 상품 스냅샷 리스트
         List<InventoryClient.RestoreStockRequest> reservedStocks = new ArrayList<>();
@@ -102,7 +92,7 @@ public class OrderCommandService {
                 command.reservationId(),
                 command.restaurantId(),
                 finalOrderName,
-                verifiedDate,
+                verifiedDate, // 포트를 통해 받아온 날짜
                 method,
                 command.expiredAt(),
                 orderItems
