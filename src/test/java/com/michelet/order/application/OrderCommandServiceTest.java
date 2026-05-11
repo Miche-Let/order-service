@@ -10,12 +10,12 @@ import static org.mockito.Mockito.verify;
 import com.michelet.common.response.ApiResponse;
 import com.michelet.order.application.dto.CreateOrderCommand;
 import com.michelet.order.application.dto.OrderResult;
+import com.michelet.order.application.port.out.ReservationValidationPort;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.model.OrderStatus;
 import com.michelet.order.domain.repository.OrderRepository;
 import com.michelet.order.infrastructure.client.CatalogClient;
 import com.michelet.order.infrastructure.client.InventoryClient;
-import com.michelet.order.infrastructure.client.ReservationClient;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,7 +36,8 @@ import org.springframework.test.context.ActiveProfiles;
 class OrderCommandServiceTest {
 
     @Mock
-    private ReservationClient reservationClient;
+    private ReservationValidationPort reservationValidationPort;
+
     @Mock
     private InventoryClient inventoryClient;
     @Mock
@@ -71,12 +72,11 @@ class OrderCommandServiceTest {
             )
         );
 
-        given(orderRepository.existsByReservationId(command.reservationId())).willReturn(false);
-
-        given(reservationClient.verifyReservation(command.userId(), command.restaurantId()))
-            .willReturn(
-                ApiResponse.ok(
-                    new ReservationClient.ReservationValidityResponse(true, command.reservationId(), LocalDate.now())));
+        given(reservationValidationPort.validateAndGetDate(
+            command.reservationId(),
+            command.userId(),
+            command.restaurantId()
+        )).willReturn(LocalDate.now());
 
         given(catalogClient.validateOption(optionId1))
             .willReturn(ApiResponse.ok(

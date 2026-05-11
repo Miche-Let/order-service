@@ -103,8 +103,16 @@ public class Order extends BaseEntity {
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("주문 항목은 최소 1개 이상이어야 합니다.");
         }
-        Order order = new Order(userId, reservationId, restaurantId, orderName, reservedDate, receivingMethod,
-            expiredAt);
+        Order order = Order.builder()
+            .userId(userId)
+            .reservationId(reservationId)
+            .restaurantId(restaurantId)
+            .orderName(orderName)
+            .reservedDate(reservedDate)
+            .receivingMethod(receivingMethod)
+            .expiredAt(expiredAt)
+            .build();
+        
         // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
         items.forEach(order::addOrderItem);
         return order;

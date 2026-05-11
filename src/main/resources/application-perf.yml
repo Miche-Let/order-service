@@ -1,0 +1,21 @@
+spring:
+    config:
+        activate:
+            on-profile: perf
+
+    datasource:
+        hikari:
+            maximum-pool-size: 10      # DB 커넥션 풀을 10개로 제한하여 병목 유발
+            minimum-idle: 10
+            connection-timeout: 30000  # 30초 대기 후 ConnectionTimeout(500 에러) 발생
+
+    jpa:
+        show-sql: false # 수만 건의 쿼리가 콘솔에 찍히면 I/O 병목이 생기므로 반드시 꺼야 함
+        properties:
+            hibernate:
+                format_sql: false
+
+logging:
+    level:
+        root: INFO
+        com.michelet: INFO
