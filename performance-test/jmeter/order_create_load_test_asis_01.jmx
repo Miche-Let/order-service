@@ -3,10 +3,14 @@
   <hashTree>
     <TestPlan guiclass="TestPlanGui" testclass="TestPlan" testname="1차 부하 테스트">
       <elementProp name="TestPlan.user_defined_variables" elementType="Arguments" guiclass="ArgumentsPanel" testclass="Arguments" testname="사용자 정의 변수들">
-        <collectionProp name="Arguments.arguments"/>
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="AUTH_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">AUTH_TOKEN</stringProp>
+            <stringProp name="Argument.value">${__P(auth.token,)}</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
       </elementProp>
-      <boolProp name="TestPlan.functional_mode">false</boolProp>
-      <boolProp name="TestPlan.serialize_threadgroups">false</boolProp>
     </TestPlan>
     <hashTree>
       <ThreadGroup guiclass="ThreadGroupGui" testclass="ThreadGroup" testname="쓰레드 그룹">
@@ -38,7 +42,7 @@
   &quot;restaurantId&quot;: &quot;22222222-2222-2222-2222-222222222222&quot;,&#xd;
   &quot;orderName&quot;: &quot;테스트 주문 ${__UUID()}&quot;,&#xd;
   &quot;receivingMethod&quot;: &quot;PICKUP&quot;,&#xd;
-  &quot;expiredAt&quot;: &quot;2026-12-31T23:59:59&quot;,&#xd;
+  &quot;expiredAt&quot;: &quot;${__timeShift(yyyy-MM-dd'T'HH:mm:ss,,P30D,,)}&quot;,&#xd;
   &quot;items&quot;: [&#xd;
     {&#xd;
       &quot;optionId&quot;: &quot;44444444-4444-4444-4444-444444444444&quot;,&#xd;
@@ -52,7 +56,7 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP 헤더 관리자 - 슈퍼유저" enabled="true">
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP 헤더 관리자 - 슈퍼유저">
             <collectionProp name="HeaderManager.headers">
               <elementProp name="" elementType="Header">
                 <stringProp name="Header.name">Content-Type</stringProp>
@@ -60,13 +64,13 @@
               </elementProp>
               <elementProp name="" elementType="Header">
                 <stringProp name="Header.name">Authorization</stringProp>
-                <stringProp name="Header.value">Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwZjljZjZjNy00MDJjLTQxZjQtODJhZC0xMWNkN2M4ZDdjOGIiLCJyb2xlIjoiVVNFUiIsImlhdCI6MTc3ODQ3MzA5NiwiZXhwIjoyMDkzODMzMDk2fQ.7l7W3xjfjEqAo8mCh9N2Tn5SVVLxfknWUwkbUYkGX4s</stringProp>
+                <stringProp name="Header.value">Bearer ${AUTH_TOKEN}</stringProp>
               </elementProp>
             </collectionProp>
           </HeaderManager>
           <hashTree/>
         </hashTree>
-        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="결과들의 트리 보기 - 오더생성 - 01" enabled="true">
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="결과들의 트리 보기 - 오더생성 - 01">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -100,10 +104,10 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">order-service/performance-test/jmeter/result_detail_${__time(YMDHMS)}.jtl</stringProp>
+          <stringProp name="filename">./result_detail_${__time(YMDHMS)}.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서-오더-생성-01" enabled="true">
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서-오더-생성-01">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -137,10 +141,21 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">order-service/performance-test/jmeter/result_summary_${__time(YMDHMS)}.jtl</stringProp>
+          <stringProp name="filename">./result_summary_${__time(YMDHMS)}.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>
+      <Arguments guiclass="ArgumentsPanel" testclass="Arguments" testname="사용자 정의 변수들">
+        <collectionProp name="Arguments.arguments">
+          <elementProp name="AUTH_TOKEN" elementType="Argument">
+            <stringProp name="Argument.name">AUTH_TOKEN</stringProp>
+            <stringProp name="Argument.value"></stringProp>
+            <stringProp name="Argument.desc">슈퍼유저 토큰(실행 시 주입)</stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+        </collectionProp>
+      </Arguments>
+      <hashTree/>
     </hashTree>
   </hashTree>
 </jmeterTestPlan>
