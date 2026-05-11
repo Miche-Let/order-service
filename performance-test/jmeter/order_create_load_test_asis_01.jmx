@@ -20,7 +20,7 @@
         </elementProp>
       </ThreadGroup>
       <hashTree>
-        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="주문 생성">
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="주문 생성" enabled="true">
           <stringProp name="HTTPSampler.domain">localhost</stringProp>
           <stringProp name="HTTPSampler.port">19000</stringProp>
           <stringProp name="HTTPSampler.protocol">http</stringProp>
@@ -52,7 +52,7 @@
           </elementProp>
         </HTTPSamplerProxy>
         <hashTree>
-          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP 헤더 관리자 - 슈퍼유저">
+          <HeaderManager guiclass="HeaderPanel" testclass="HeaderManager" testname="HTTP 헤더 관리자 - 슈퍼유저" enabled="true">
             <collectionProp name="HeaderManager.headers">
               <elementProp name="" elementType="Header">
                 <stringProp name="Header.name">Content-Type</stringProp>
@@ -66,7 +66,7 @@
           </HeaderManager>
           <hashTree/>
         </hashTree>
-        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="결과들의 트리 보기">
+        <ResultCollector guiclass="ViewResultsFullVisualizer" testclass="ResultCollector" testname="결과들의 트리 보기 - 오더생성 - 01" enabled="true">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -100,10 +100,10 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">order-service/performance-test/jmeter/result_${__time(YMDHMS)}.jtl</stringProp>
+          <stringProp name="filename">order-service/performance-test/jmeter/result_detail_${__time(YMDHMS)}.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
-        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서-오더-생성-01">
+        <ResultCollector guiclass="SummaryReport" testclass="ResultCollector" testname="요약 보고서-오더-생성-01" enabled="true">
           <boolProp name="ResultCollector.error_logging">false</boolProp>
           <objProp>
             <name>saveConfig</name>
@@ -137,7 +137,7 @@
               <connectTime>true</connectTime>
             </value>
           </objProp>
-          <stringProp name="filename">order-service/performance-test/jmeter/result_${__time(YMDHMS)}.jtl</stringProp>
+          <stringProp name="filename">order-service/performance-test/jmeter/result_summary_${__time(YMDHMS)}.jtl</stringProp>
         </ResultCollector>
         <hashTree/>
       </hashTree>

@@ -29,8 +29,13 @@ public class DefaultReservationValidationAdapter implements ReservationValidatio
         if (resResponse == null || resResponse.data() == null || !resResponse.data().isValid()) {
             throw new IllegalArgumentException("유효한 예약 내역을 찾을 수 없거나 이미 처리된 예약입니다.");
         }
-        if (!resResponse.data().reservationId().equals(reservationId)) {
+
+        if (resResponse.data().reservationId() == null
+            || !resResponse.data().reservationId().equals(reservationId)) {
             throw new IllegalArgumentException("요청된 예약 ID가 유효한 예약 정보와 일치하지 않습니다.");
+        }
+        if (resResponse.data().reservationDate() == null) {
+            throw new IllegalArgumentException("유효한 예약 날짜가 존재하지 않습니다.");
         }
 
         return resResponse.data().reservationDate();

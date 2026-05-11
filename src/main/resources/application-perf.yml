@@ -6,8 +6,8 @@ spring:
     datasource:
         hikari:
             maximum-pool-size: 10      # DB 커넥션 풀을 10개로 제한하여 병목 유발
-            minimum-idle: 10
-            connection-timeout: 30000  # 30초 대기 후 ConnectionTimeout(500 에러) 발생
+            minimum-idle: 2           # 풀 탄력성을 위해 최소 유휴 커넥션을 2로 낮춤
+            connection-timeout: 5000  # 빠른 병목 관찰을 위해 30초 -> 5초로 단축. 대기 후 ConnectionTimeout(500 에러) 발생
 
     jpa:
         show-sql: false # 수만 건의 쿼리가 콘솔에 찍히면 I/O 병목이 생기므로 반드시 꺼야 함
