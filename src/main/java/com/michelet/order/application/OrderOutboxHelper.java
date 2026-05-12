@@ -44,7 +44,10 @@ public class OrderOutboxHelper {
     // 스케줄러가 카프카 전송 성공 후 상태를 바꿀 때 사용하는 개별 독립 트랜잭션
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markAsPublished(UUID outboxId) {
-        outboxRepository.findById(outboxId).ifPresent(OrderOutbox::markAsPublished);
+        outboxRepository.findById(outboxId).ifPresentOrElse(
+            OrderOutbox::markAsPublished,
+            () -> log.warn("[Order Outbox] 발행 성공 후 상태 변경 대상이 없습니다. outboxId={}", outboxId)
+        );
     }
 
     private void saveOutbox(
