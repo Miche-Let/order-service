@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import java.util.UUID;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -43,6 +44,9 @@ public class OrderOutbox extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private OutboxStatus status;
+
+    @Version
+    private Long version;
 
     @Builder
     private OrderOutbox(

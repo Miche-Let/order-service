@@ -3,7 +3,8 @@ package com.michelet.order.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michelet.order.domain.model.OrderOutbox;
-import com.michelet.order.domain.repository.OrderOutboxRepository;
+import com.michelet.order.infrastructure.repository.JpaOrderOutboxRepository;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -15,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrderOutboxHelper {
 
-    private final OrderOutboxRepository outboxRepository;
+    private final JpaOrderOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
     // 1. 주문 취소 등 정상 흐름에서 사용 (현재 트랜잭션에 합류)
@@ -38,6 +39,12 @@ public class OrderOutboxHelper {
         Object payloadObj
     ) {
         saveOutbox(aggregateType, aggregateId, eventType, payloadObj);
+    }
+
+    // 스케줄러가 카프카 전송 성공 후 상태를 바꿀 때 사용하는 개별 독립 트랜잭션
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void markAsPublished(UUID outboxId) {
+        outboxRepository.findById(outboxId).ifPresent(OrderOutbox::markAsPublished);
     }
 
     private void saveOutbox(

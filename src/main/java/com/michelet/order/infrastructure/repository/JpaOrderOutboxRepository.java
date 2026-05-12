@@ -7,6 +7,7 @@ import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface JpaOrderOutboxRepository extends JpaRepository<OrderOutbox, UUID> {
-    // 발행 대기(INIT) 상태인 이벤트만 긁어오기
-    List<OrderOutbox> findByStatus(OutboxStatus status);
+
+    // OOM 방지 및 순서 보장을 위해 Top N개 생성순 조회로 변경
+    List<OrderOutbox> findTop50ByStatusOrderByCreatedAtAsc(OutboxStatus status);
 }

@@ -109,6 +109,8 @@ public class OrderCommandService {
         } catch (Exception e) {
             // 성공적으로 선점했던 내역(reservedStocks)만 순회하며 주문 시도 전체에 대한 성공 아이템에 대해서도 복구 기록을 남김
             log.error("주문 생성 중 예외 발생. 보상 트랜잭션(재고 복구)을 Outbox에 저장합니다. 원인: {}", e.getMessage());
+
+            // 반복문 안쪽에 try-catch를 두어 독립적인 실패 추적 및 계속 진행 보장
             for (InventoryClient.RestoreStockRequest restoreReq : reservedStocks) {
                 try {
                     orderOutboxHelper.appendCompensation(
@@ -118,9 +120,12 @@ public class OrderCommandService {
                         new StockRestoreEventPayload(restoreReq.optionId(), restoreReq.quantity())
                     );
                     log.info("보상 Outbox 저장 완료: 옵션 {} 재고 복구 대기", restoreReq.optionId());
-                } catch (Exception ex) {
-                    log.error("크리티컬: 재고 복구 Outbox 저장 실패 (수동 복구 필요!): optionId={}, quantity={}",
-                        restoreReq.optionId(), restoreReq.quantity(), ex);
+                } catch (Exception outboxEx) {
+                    // 향후 모니터링/알림 시스템 연동을 위한 상세 로그 기록
+                    log.error(
+                        "[CRITICAL ALERT] 보상 트랜잭션 Outbox 저장 실패. 수동 복구 요망! reservationId: {}, optionId: {}, quantity: {}",
+                        command.reservationId(), restoreReq.optionId(), restoreReq.quantity(), outboxEx);
+                    // TODO: Slack, Datadog 알림 발송 등
                 }
             }
             throw e;
