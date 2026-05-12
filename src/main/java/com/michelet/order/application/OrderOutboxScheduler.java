@@ -1,5 +1,7 @@
 package com.michelet.order.application;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.domain.model.OrderOutbox;
 import com.michelet.order.domain.model.OutboxStatus;
 import com.michelet.order.infrastructure.repository.JpaOrderOutboxRepository;
@@ -22,6 +24,9 @@ public class OrderOutboxScheduler {
     private final OrderOutboxHelper orderOutboxHelper; // 트랜잭션 분리를 위한 Helper 주입
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    // JSON 문자열을 객체로 복원하기 위한 매퍼 주입
+    private final ObjectMapper objectMapper;
+
     @Value("${order.kafka.topic.stock-restore:stock.restored}")
     private String stockRestoreTopic;
 
@@ -42,10 +47,14 @@ public class OrderOutboxScheduler {
                 // 2. 이벤트 타입에 따라 카프카 토픽명 결정
                 String topic = resolveTopic(event.getEventType());
 
+                // String(JSON)을 다시 원본 Event 객체로 복원
+                Object originalEventObject = deserializePayload(event.getEventType(), event.getPayload());
+
                 // Kafka 전송 및 동기식 대기
                 // 비동기로 쏘고 바로 넘어가면, 카프카 서버가 터져서 못 받았는데도 DB는 PUBLISHED로 바뀌는 사고 발생 가능
-                // => .get(3, TimeUnit.SECONDS)를 통해 브로커의 확실한 수신 응답(ACK)을 최대 3초간 기다림
-                kafkaTemplate.send(topic, event.getAggregateId(), event.getPayload())
+                //   => .get(3, TimeUnit.SECONDS)를 통해 브로커의 확실한 수신 응답(ACK)을 최대 3초간 기다림
+                // 복원된 객체를 보내야 JsonSerializer가 __TypeId__를 정확히 세팅함
+                kafkaTemplate.send(topic, event.getAggregateId(), originalEventObject)
                     .get(3, TimeUnit.SECONDS);
 
                 // 4. 전송에 완벽히 성공했을 때만 상태를 PUBLISHED로 변경 (JPA 더티 체킹으로 자동 UPDATE)
@@ -65,10 +74,20 @@ public class OrderOutboxScheduler {
         }
     }
 
+    // JSON 문자열을 원래 DTO 클래스로 변환
+    private Object deserializePayload(String eventType, String jsonPayload) throws Exception {
+        return switch (eventType) {
+            case "STOCK_RESTORE", "STOCK_RESTORED" ->
+                objectMapper.readValue(jsonPayload, StockRestoreEventPayload.class);
+            // 취소나 생성 등 다른 이벤트가 추가되면 여기에 case를 늘려가면 됨
+            default -> jsonPayload;
+        };
+    }
+
     private String resolveTopic(String eventType) {
-        if ("STOCK_RESTORE".equals(eventType)) {
-            return stockRestoreTopic; // 인벤토리 서버가 구독할 토픽명
-        }
-        return "order.unknown.event";
+        return switch (eventType) {
+            case "STOCK_RESTORE", "STOCK_RESTORED" -> stockRestoreTopic;
+            default -> "order.unknown.event";
+        };
     }
 }

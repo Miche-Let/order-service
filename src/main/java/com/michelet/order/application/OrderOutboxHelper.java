@@ -41,11 +41,14 @@ public class OrderOutboxHelper {
         saveOutbox(aggregateType, aggregateId, eventType, payloadObj);
     }
 
-    // 스케줄러가 카프카 전송 성공 후 상태를 바꿀 때 사용하는 개별 독립 트랜잭션
+    // 3. 스케줄러가 카프카 전송 성공 후 상태를 바꿀 때 사용하는 개별 독립 트랜잭션
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markAsPublished(UUID outboxId) {
         outboxRepository.findById(outboxId).ifPresentOrElse(
-            OrderOutbox::markAsPublished,
+            outbox -> {
+                outbox.markAsPublished();
+                outboxRepository.save(outbox);
+            },
             () -> log.warn("[Order Outbox] 발행 성공 후 상태 변경 대상이 없습니다. outboxId={}", outboxId)
         );
     }
@@ -56,6 +59,19 @@ public class OrderOutboxHelper {
         String eventType,
         Object payloadObj
     ) {
+        if (aggregateType == null || aggregateType.isBlank()) {
+            throw new IllegalArgumentException("aggregateType은 필수입니다.");
+        }
+        if (aggregateId == null || aggregateId.isBlank()) {
+            throw new IllegalArgumentException("aggregateId는 필수입니다.");
+        }
+        if (eventType == null || eventType.isBlank()) {
+            throw new IllegalArgumentException("eventType은 필수입니다.");
+        }
+        if (payloadObj == null) {
+            throw new IllegalArgumentException("payloadObj는 필수입니다.");
+        }
+
         try {
             String payloadJson = objectMapper.writeValueAsString(payloadObj);
             OrderOutbox outbox = OrderOutbox.builder()
