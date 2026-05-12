@@ -30,7 +30,7 @@ public class OrderOutboxHelper {
         saveOutbox(aggregateType, aggregateId, eventType, payloadObj, false);
     }
 
-    // 2. 보상 트랜잭션 흐름 (반드시 DB에 기록을 남겨야 함)
+    // 2. 보상 트랜잭션 흐름 (무슨 일이 있어도 DB에 기록을 남겨야 함)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void appendCompensation(
         String aggregateType,
@@ -95,8 +95,15 @@ public class OrderOutboxHelper {
                     .eventType(eventType + "_SERIALIZATION_ERROR")
                     .payload(errorPayload)
                     .build();
-                outboxRepository.save(errorOutbox);
-                log.error("[CRITICAL] 보상 트랜잭션 이벤트 직렬화 실패로 Fallback 에러 이벤트를 적재했습니다. 수동 확인 요망!");
+
+                // 저장된 객체를 변수로 받아 ID를 로그에 함께 출력
+                OrderOutbox savedErrorOutbox = outboxRepository.save(errorOutbox);
+                log.error(
+                    "[CRITICAL] 보상 트랜잭션 이벤트 직렬화 실패로 fallback 에러 이벤트를 적재했습니다. outboxId={}, aggregateId={}, eventType={}. 수동 확인이 필요합니다.",
+                    savedErrorOutbox.getId(),
+                    aggregateId,
+                    eventType
+                );
             } else {
                 // 정상 흐름일 경우 예외를 던져서 트랜잭션 롤백 유도
                 throw new RuntimeException("Outbox 이벤트 생성 중 오류가 발생했습니다.", e);
