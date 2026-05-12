@@ -453,6 +453,7 @@ Authorization: Bearer {{ord_userToken}}
 @dummy_reservation_id = 33333333-3333-3333-3333-333333333333
 @dummy_restaurant_id = 22222222-2222-2222-2222-222222222222
 @dummy_user_id = 0f9cf6c7-402c-41f4-82ad-11cd7c8d7c8b
+@dummy_user_token = ~~
 
 # 카탈로그/인벤토리 Initializer에 세팅해둔 고정 상품 옵션 ID
 @dummy_invalid_option_id = 99999999-9999-9999-9999-999999999999
@@ -462,7 +463,7 @@ Authorization: Bearer {{ord_userToken}}
 # -> 결과: 첫 번째 상품(valid_option_id)을 롤백(RESTORE)하라는 이벤트가 Outbox에 'INIT'으로 꽂혀야 함!
 POST {{gatewayUrl}}/api/v1/orders
 Content-Type: application/json
-Authorization: Bearer {{ord_userToken}}
+Authorization: Bearer {{dummy_user_token}}
 
 {
     "restaurantId": "{{dummy_restaurant_id}}",
@@ -489,7 +490,7 @@ Authorization: Bearer {{ord_userToken}}
 # 2-1) 일단 정상 주문 하나 만들기
 POST {{gatewayUrl}}/api/v1/orders
 Content-Type: application/json
-Authorization: Bearer {{ord_userToken}}
+Authorization: Bearer {{dummy_user_token}}
 
 {
     "restaurantId": "{{dummy_restaurant_id}}",
@@ -513,7 +514,69 @@ Authorization: Bearer {{ord_userToken}}
 ### 2-2) 방금 만든 주문 취소하기
 PATCH {{gatewayUrl}}/api/v1/orders/{{temp_order_id}}/cancel
 Content-Type: application/json
-Authorization: Bearer {{ord_userToken}}
+Authorization: Bearer {{dummy_user_token}}
+
+{
+  "userId": "{{dummy_user_id}}"
+}
+
+
+### 1. 스케줄러 보상 트랜잭션 자동 발행 테스트 - [아웃박스 스케줄러 테스트] 더미 데이터만 사용한 Outbox 스케줄러 자동 발행 확인
+# 1번 아이템은 선점 성공, 2번 아이템은 카탈로그(또는 인벤토리)에서 에러 유발
+# -> DB에 INIT으로 저장된 후, 5초 뒤 스케줄러가 카프카로 쏘고 PUBLISHED로 바꿈.
+POST {{gatewayUrl}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{dummy_user_token}}
+
+{
+    "restaurantId": "{{dummy_restaurant_id}}",
+    "reservationId": "{{dummy_reservation_id}}",
+    "orderName": "아웃박스 스케줄러 보상 테스트",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-12-31T18:00:00",
+    "items": [
+        {
+            "optionId": "{{ord_option_id_2_1}}",
+            "quantity": 1
+        },
+        {
+            "optionId": "{{dummy_invalid_option_id}}",
+            "quantity": 1
+        }
+    ]
+}
+
+
+### 2. 스케줄러 주문 취소 자동 발행 테스트 - [아웃박스 스케줄러 테스트] 더미 데이터만 사용한 Outbox 스케줄러 자동 발행 확인
+# 2-1) 정상 주문 하나 만들기
+POST {{gatewayUrl}}/api/v1/orders
+Content-Type: application/json
+Authorization: Bearer {{dummy_user_token}}
+
+{
+    "restaurantId": "{{dummy_restaurant_id}}",
+    "reservationId": "{{dummy_reservation_id}}",
+    "orderName": "아웃박스 스케줄러 취소 테스트",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-12-31T18:00:00",
+    "items": [
+        {
+            "optionId": "{{ord_option_id_2_1}}",
+            "quantity": 1
+        }
+    ]
+}
+
+> {%
+    // 방금 만든 더미 주문 ID를 변수에 저장
+    client.global.set("dummy_cancel_order_id", response.body.data.orderId);
+%}
+
+### 2-2) 방금 만든 주문 취소하기
+# -> DB에 INIT으로 저장된 후, 5초 뒤 스케줄러가 카프카로 쏘고 PUBLISHED로 바꿈
+PATCH {{gatewayUrl}}/api/v1/orders/{{dummy_cancel_order_id}}/cancel
+Content-Type: application/json
+Authorization: Bearer {{dummy_user_token}}
 
 {
   "userId": "{{dummy_user_id}}"

@@ -57,4 +57,8 @@ public class OrderOutbox extends BaseEntity {
         this.payload = payload;
         this.status = OutboxStatus.INIT; // 생성 시 기본값은 INIT
     }
+
+    public void markAsPublished() {
+        this.status = OutboxStatus.PUBLISHED;
+    }
 }

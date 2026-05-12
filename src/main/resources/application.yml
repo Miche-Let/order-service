@@ -24,6 +24,11 @@ spring:
 server:
     port: 19700
 
+order:
+    kafka:
+        topic:
+            stock-restore: "stock.restored"
+
 internal:
     auth:
         secret: ${INTERNAL_AUTH_SECRET}

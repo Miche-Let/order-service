@@ -39,6 +39,7 @@ dependencies {
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
     annotationProcessor 'org.projectlombok:lombok'
+    implementation 'org.springframework.kafka:spring-kafka'
 
     asciidoctorExt 'org.springframework.restdocs:spring-restdocs-asciidoctor'
 
@@ -49,6 +50,7 @@ dependencies {
     testAnnotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'com.h2database:h2'
     testImplementation 'com.h2database:h2' // 테스트용 메모리 DB 추가
+    testImplementation 'org.springframework.kafka:spring-kafka-test'
 
     implementation 'com.github.Miche-Let:common:dev-SNAPSHOT'
     implementation 'com.github.Miche-Let:common-auth-webmvc:0.1.5'
