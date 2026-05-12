@@ -19,7 +19,7 @@ public class OrderOutboxHelper {
     private final JpaOrderOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
-    // 1. 주문 취소 등 정상 흐름에서 사용 (현재 트랜잭션에 합류)
+    // 1. 주문 생성/취소 등 정상 흐름 (실패 시 트랜잭션 롤백 필요)
     @Transactional(propagation = Propagation.REQUIRED)
     public void append(
         String aggregateType,
@@ -27,10 +27,10 @@ public class OrderOutboxHelper {
         String eventType,
         Object payloadObj
     ) {
-        saveOutbox(aggregateType, aggregateId, eventType, payloadObj);
+        saveOutbox(aggregateType, aggregateId, eventType, payloadObj, false);
     }
 
-    // 2. 주문 생성 실패 시 보상 트랜잭션에서 사용 (기존 롤백 트랜잭션과 분리되어 무조건 커밋됨)
+    // 2. 보상 트랜잭션 흐름 (반드시 DB에 기록을 남겨야 함)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void appendCompensation(
         String aggregateType,
@@ -38,7 +38,7 @@ public class OrderOutboxHelper {
         String eventType,
         Object payloadObj
     ) {
-        saveOutbox(aggregateType, aggregateId, eventType, payloadObj);
+        saveOutbox(aggregateType, aggregateId, eventType, payloadObj, true);
     }
 
     // 3. 스케줄러가 카프카 전송 성공 후 상태를 바꿀 때 사용하는 개별 독립 트랜잭션
@@ -57,7 +57,8 @@ public class OrderOutboxHelper {
         String aggregateType,
         String aggregateId,
         String eventType,
-        Object payloadObj
+        Object payloadObj,
+        boolean isCompensation // 보상 트랜잭션 여부 플래그
     ) {
         if (aggregateType == null || aggregateType.isBlank()) {
             throw new IllegalArgumentException("aggregateType은 필수입니다.");
@@ -83,7 +84,23 @@ public class OrderOutboxHelper {
             outboxRepository.save(outbox);
         } catch (JsonProcessingException e) {
             log.error("Outbox 페이로드 직렬화 실패. aggregateId={}, eventType={}", aggregateId, eventType, e);
-            throw new RuntimeException("Outbox 이벤트 생성 중 오류가 발생했습니다.", e);
+
+            // 보상 트랜잭션인 경우 예외를 삼키고 에러 페이로드로 대체 저장하여 유실 방지
+            if (isCompensation) {
+                String errorPayload = String.format("{\"error\":\"serialization_failed\",\"class\":\"%s\"}",
+                    payloadObj.getClass().getName());
+                OrderOutbox errorOutbox = OrderOutbox.builder()
+                    .aggregateType(aggregateType)
+                    .aggregateId(aggregateId)
+                    .eventType(eventType + "_SERIALIZATION_ERROR")
+                    .payload(errorPayload)
+                    .build();
+                outboxRepository.save(errorOutbox);
+                log.error("[CRITICAL] 보상 트랜잭션 이벤트 직렬화 실패로 Fallback 에러 이벤트를 적재했습니다. 수동 확인 요망!");
+            } else {
+                // 정상 흐름일 경우 예외를 던져서 트랜잭션 롤백 유도
+                throw new RuntimeException("Outbox 이벤트 생성 중 오류가 발생했습니다.", e);
+            }
         }
     }
 }
