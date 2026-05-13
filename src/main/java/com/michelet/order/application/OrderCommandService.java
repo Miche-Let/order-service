@@ -117,7 +117,8 @@ public class OrderCommandService {
                         "ORDER",
                         command.reservationId().toString(), // Order가 생성되기 전이므로 예약 ID를 Aggregate ID로 사용
                         "STOCK_RESTORE",
-                        new StockRestoreEventPayload(restoreReq.optionId(), restoreReq.quantity())
+                        // UUID.randomUUID()를 통해 고유한 이벤트 식별자(eventId) 발급
+                        new StockRestoreEventPayload(UUID.randomUUID(), restoreReq.optionId(), restoreReq.quantity())
                     );
                     log.info("보상 Outbox 저장 완료: 옵션 {} 재고 복구 대기", restoreReq.optionId());
                 } catch (Exception outboxEx) {
@@ -148,7 +149,7 @@ public class OrderCommandService {
                 "ORDER",
                 order.getId().toString(),
                 "STOCK_RESTORE",
-                new StockRestoreEventPayload(item.getOptionId(), item.getQuantity())
+                new StockRestoreEventPayload(UUID.randomUUID(), item.getOptionId(), item.getQuantity())
             );
             log.info("주문 취소에 따른 재고 복구 Outbox 저장 완료: optionId={}, quantity={}", item.getOptionId(), item.getQuantity());
         }
