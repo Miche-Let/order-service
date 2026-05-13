@@ -51,8 +51,8 @@ public class OrderOutboxHelper {
     public void markAsPublished(UUID outboxId) {
         outboxRepository.findById(outboxId).ifPresentOrElse(
             outbox -> {
-                // 비동기 처리 중 혹시 모를 중복 업데이트 방어
-                if (outbox.getStatus() == OutboxStatus.PUBLISHED) {
+                // 비동기 처리 중 혹시 모를 중복 업데이트 방어- INIT -> PUBLISHED 전이만 허용
+                if (outbox.getStatus() != OutboxStatus.INIT) {
                     return;
                 }
 
