@@ -48,6 +48,9 @@ public class OrderOutbox extends BaseEntity {
     @Version
     private Long version;
 
+    @Column(nullable = false)
+    private Integer retryCount = 0;
+
     @Builder
     private OrderOutbox(
         String aggregateType,
@@ -60,9 +63,22 @@ public class OrderOutbox extends BaseEntity {
         this.eventType = eventType;
         this.payload = payload;
         this.status = OutboxStatus.INIT; // 생성 시 기본값은 INIT
+        this.retryCount = 0;
     }
 
     public void markAsPublished() {
         this.status = OutboxStatus.PUBLISHED;
+    }
+
+    // 영구 실패 상태 전이 로직
+    public void markAsFailed() {
+        this.status = OutboxStatus.FAILED;
+    }
+
+    public void incrementRetryCount() {
+        if (this.retryCount == null) {
+            this.retryCount = 0;
+        }
+        this.retryCount++;
     }
 }

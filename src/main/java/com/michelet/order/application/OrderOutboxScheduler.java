@@ -6,7 +6,7 @@ import com.michelet.order.domain.model.OrderOutbox;
 import com.michelet.order.domain.model.OutboxStatus;
 import com.michelet.order.domain.repository.OrderOutboxRepository;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -50,27 +50,40 @@ public class OrderOutboxScheduler {
                 // String(JSON)을 다시 원본 Event 객체로 복원
                 Object originalEventObject = deserializePayload(event.getEventType(), event.getPayload());
 
-                // Kafka 전송 및 동기식 대기
-                // 비동기로 쏘고 바로 넘어가면, 카프카 서버가 터져서 못 받았는데도 DB는 PUBLISHED로 바뀌는 사고 발생 가능
-                //   => .get(3, TimeUnit.SECONDS)를 통해 브로커의 확실한 수신 응답(ACK)을 최대 3초간 기다림
+                // 동기 대기(.get) 제거 후 비동기 콜백 적용
                 // 복원된 객체를 보내야 JsonSerializer가 __TypeId__를 정확히 세팅함
                 kafkaTemplate.send(topic, event.getAggregateId(), originalEventObject)
-                    .get(3, TimeUnit.SECONDS);
+                    .whenComplete((result, ex) -> {
+                        if (ex == null) {
+                            try {
+                                orderOutboxHelper.markAsPublished(event.getId());
+                                log.info("[Order Outbox Scheduler] 이벤트 발행 성공! Outbox ID: {}", event.getId());
+                            } catch (ObjectOptimisticLockingFailureException oole) {
+                                log.info("[Order Outbox Scheduler] 낙관적 락 방어 (동시성 경합). Outbox ID: {}", event.getId());
+                            } catch (Exception updateEx) {
+                                log.error("[Order Outbox Scheduler] DB 상태 업데이트 실패. Outbox ID: {}", event.getId(),
+                                    updateEx);
+                            }
+                        } else {
+                            log.error("[Order Outbox Scheduler] 카프카 이벤트 발행 실패. Outbox ID: {}", event.getId(), ex);
+                            safeHandleFailure(event.getId()); // 실패 카운트 로직 실행
+                        }
+                    });
 
-                // 4. 전송에 완벽히 성공했을 때만 상태를 PUBLISHED로 변경 (JPA 더티 체킹으로 자동 UPDATE)
-                // Helper를 호출하여 새로운 독립 트랜잭션 내에서 상태 변경 수행
-                orderOutboxHelper.markAsPublished(event.getId());
-                log.info("[Order Outbox Scheduler] 이벤트 발행 성공! Outbox ID: {}", event.getId());
-
-            } catch (ObjectOptimisticLockingFailureException oole) {
-                // 다중 스케줄러 환경에서 동시 접근 시 발생. 한쪽 서버가 먼저 처리했으므로 안전하게 무시.
-                log.info("[Order Outbox Scheduler] 이미 처리된 이벤트입니다 (낙관적 락 충돌). Outbox ID: {}", event.getId());
             } catch (Exception e) {
-                // 5. 카프카가 죽어있거나 네트워크 에러가 나면 여기서 잡힘
-                // 예외를 밖으로 던지지 않고 여기서 먹어버림으로써, 다음 루프의 이벤트는 계속 처리하도록 보호함
-                // (이번에 실패한 이벤트는 상태가 여전히 INIT이므로, 5초 뒤 스케줄러가 다시 긁어와서 재시도함 (At-Least-Once 보장))
-                log.error("[Order Outbox Scheduler] 이벤트 발행 실패. 다음 주기에 재시도합니다. Outbox ID: {}", event.getId(), e);
+                log.error("[Order Outbox Scheduler] 전송 준비 중 오류 발생. Outbox ID: {}", event.getId(), e);
+                safeHandleFailure(event.getId());
             }
+        }
+    }
+
+    private void safeHandleFailure(UUID eventId) {
+        try {
+            orderOutboxHelper.handleFailure(eventId);
+        } catch (ObjectOptimisticLockingFailureException oole) {
+            log.info("[Order Outbox Scheduler] 실패 마킹 중 낙관적 락 방어. Outbox ID: {}", eventId);
+        } catch (Exception e) {
+            log.error("[Order Outbox Scheduler] 실패 상태 업데이트 중 예외 발생. Outbox ID: {}", eventId, e);
         }
     }
 
@@ -80,7 +93,10 @@ public class OrderOutboxScheduler {
             case "STOCK_RESTORE", "STOCK_RESTORED" ->
                 objectMapper.readValue(jsonPayload, StockRestoreEventPayload.class);
             // 취소나 생성 등 다른 이벤트가 추가되면 여기에 case를 늘려가면 됨
-            default -> jsonPayload;
+            default -> {
+                log.warn("등록되지 않은 알 수 없는 이벤트 타입입니다: {}", eventType);
+                throw new IllegalArgumentException("Unknown event type: " + eventType);
+            }
         };
     }
 

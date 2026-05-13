@@ -3,10 +3,12 @@ package com.michelet.order.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michelet.order.domain.model.OrderOutbox;
+import com.michelet.order.domain.model.OutboxStatus;
 import com.michelet.order.domain.repository.OrderOutboxRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,9 @@ public class OrderOutboxHelper {
 
     private final OrderOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
+
+    @Value("${order.outbox.max-retries:3}")
+    private int maxRetries;
 
     // 1. 주문 생성/취소 등 정상 흐름 (실패 시 트랜잭션 롤백 필요)
     @Transactional(propagation = Propagation.REQUIRED)
@@ -46,10 +51,35 @@ public class OrderOutboxHelper {
     public void markAsPublished(UUID outboxId) {
         outboxRepository.findById(outboxId).ifPresentOrElse(
             outbox -> {
+                // 비동기 처리 중 혹시 모를 중복 업데이트 방어
+                if (outbox.getStatus() == OutboxStatus.PUBLISHED) {
+                    return;
+                }
+
                 outbox.markAsPublished();
                 outboxRepository.save(outbox);
             },
             () -> log.warn("[Order Outbox] 발행 성공 후 상태 변경 대상이 없습니다. outboxId={}", outboxId)
+        );
+    }
+
+    // 비동기 카프카 전송 실패 시 재시도 횟수를 올리고 3회 초과 시 FAILED 처리하는 로직
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleFailure(UUID outboxId) {
+        outboxRepository.findById(outboxId).ifPresentOrElse(
+            outbox -> {
+                if (outbox.getStatus() != OutboxStatus.INIT) {
+                    return;
+                }
+
+                outbox.incrementRetryCount();
+                if (outbox.getRetryCount() >= maxRetries) {
+                    outbox.markAsFailed();
+                    log.error("[CRITICAL] Order Outbox 최대 재시도 횟수 초과. FAILED 상태로 마킹. 수동 조치 요망. outboxId={}", outboxId);
+                }
+                outboxRepository.save(outbox);
+            },
+            () -> log.warn("[Order Outbox] 실패 처리 대상이 없습니다. outboxId={}", outboxId)
         );
     }
 
