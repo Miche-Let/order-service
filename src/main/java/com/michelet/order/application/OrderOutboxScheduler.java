@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.domain.model.OrderOutbox;
 import com.michelet.order.domain.model.OutboxStatus;
-import com.michelet.order.infrastructure.repository.JpaOrderOutboxRepository;
+import com.michelet.order.domain.repository.OrderOutboxRepository;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +20,7 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class OrderOutboxScheduler {
 
-    private final JpaOrderOutboxRepository outboxRepository;
+    private final OrderOutboxRepository outboxRepository;
     private final OrderOutboxHelper orderOutboxHelper; // 트랜잭션 분리를 위한 Helper 주입
     private final KafkaTemplate<String, Object> kafkaTemplate;
 

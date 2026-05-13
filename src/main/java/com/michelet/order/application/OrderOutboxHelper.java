@@ -3,7 +3,7 @@ package com.michelet.order.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michelet.order.domain.model.OrderOutbox;
-import com.michelet.order.infrastructure.repository.JpaOrderOutboxRepository;
+import com.michelet.order.domain.repository.OrderOutboxRepository;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrderOutboxHelper {
 
-    private final JpaOrderOutboxRepository outboxRepository;
+    private final OrderOutboxRepository outboxRepository;
     private final ObjectMapper objectMapper;
 
     // 1. 주문 생성/취소 등 정상 흐름 (실패 시 트랜잭션 롤백 필요)
@@ -83,7 +83,8 @@ public class OrderOutboxHelper {
                 .build();
             outboxRepository.save(outbox);
         } catch (JsonProcessingException e) {
-            log.error("Outbox 페이로드 직렬화 실패. aggregateId={}, eventType={}", aggregateId, eventType, e);
+            log.error("Outbox 페이로드 직렬화 실패. aggregateId={}, eventType={}, error={}",
+                aggregateId, eventType, e.getMessage(), e);
 
             // 보상 트랜잭션인 경우 예외를 삼키고 에러 페이로드로 대체 저장하여 유실 방지
             if (isCompensation) {
