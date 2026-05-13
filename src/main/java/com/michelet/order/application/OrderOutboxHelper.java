@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.michelet.order.domain.model.OrderOutbox;
 import com.michelet.order.domain.model.OutboxStatus;
 import com.michelet.order.domain.repository.OrderOutboxRepository;
+import jakarta.annotation.PostConstruct;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,8 +25,15 @@ public class OrderOutboxHelper {
     @Value("${order.outbox.max-retries:3}")
     private int maxRetries;
 
-    // 1. 주문 생성/취소 등 정상 흐름 (실패 시 트랜잭션 롤백 필요)
-    @Transactional(propagation = Propagation.REQUIRED)
+    @PostConstruct
+    public void validateMaxRetries() {
+        if (maxRetries < 1) {
+            throw new IllegalStateException("order.outbox.max-retries must be >= 1");
+        }
+    }
+
+    // 1. 주문 생성/취소 등 정상 흐름 (호출 측에 활성 트랜잭션이 없으면 즉시 실패하여 원자성 강제)
+    @Transactional(propagation = Propagation.MANDATORY)
     public void append(
         String aggregateType,
         String aggregateId,
