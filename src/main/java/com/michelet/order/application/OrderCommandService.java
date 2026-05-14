@@ -21,7 +21,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
-@Transactional
 @RequiredArgsConstructor
 public class OrderCommandService {
 
@@ -133,6 +132,7 @@ public class OrderCommandService {
         }
     }
 
+    @Transactional
     public void cancelOrder(UUID orderId, UUID userId) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
@@ -155,6 +155,7 @@ public class OrderCommandService {
         }
     }
 
+    @Transactional
     // TODO: 향후 결제 시스템 연동 완료 시, 클라이언트 직접 호출이 아닌 Kafka 결제 완료 이벤트 리스너에서 호출하도록 변경
     public void completeOrder(UUID orderId) {
         Order order = orderRepository.findById(orderId)
@@ -162,6 +163,7 @@ public class OrderCommandService {
         order.complete();
     }
 
+    @Transactional
     public void receiveOrder(UUID orderId) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));

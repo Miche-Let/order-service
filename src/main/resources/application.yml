@@ -2,6 +2,7 @@ spring:
     application:
         name: order-service
     jpa:
+        open-in-view: false
         show-sql: true
         properties:
             hibernate:
@@ -27,7 +28,7 @@ server:
 order:
     kafka:
         topic:
-            stock-restore: "stock.restored"
+            stock-restore: "order.stock-restore.requested"
     outbox:
         max-retries: 3 # 최대 재시도 횟수 설정
 

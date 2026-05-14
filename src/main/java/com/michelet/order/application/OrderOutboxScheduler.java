@@ -27,7 +27,7 @@ public class OrderOutboxScheduler {
     // JSON 문자열을 객체로 복원하기 위한 매퍼 주입
     private final ObjectMapper objectMapper;
 
-    @Value("${order.kafka.topic.stock-restore:stock.restored}")
+    @Value("${order.kafka.topic.stock-restore:order.stock-restore.requested}")
     private String stockRestoreTopic;
 
     // 5초마다 주기적으로 실행
