@@ -107,8 +107,25 @@ public class OrderOutboxHelper {
         if (eventType == null || eventType.isBlank()) {
             throw new IllegalArgumentException("eventType은 필수입니다.");
         }
+
+        // payload가 null일 때, 보상 트랜잭션이면 예외를 던지지 않고 에러 레코드를 남김
         if (payloadObj == null) {
-            throw new IllegalArgumentException("payloadObj는 필수입니다.");
+            if (!isCompensation) {
+                throw new IllegalArgumentException("payloadObj는 필수입니다.");
+            }
+
+            OrderOutbox errorOutbox = OrderOutbox.builder()
+                .aggregateType(aggregateType)
+                .aggregateId(aggregateId)
+                .eventType(eventType + "_PAYLOAD_MISSING_ERROR")
+                .payload("{\"error\":\"payload_missing\",\"class\":\"null\"}")
+                .build();
+
+            OrderOutbox savedErrorOutbox = outboxRepository.save(errorOutbox);
+            log.error(
+                "[CRITICAL] 보상 트랜잭션 페이로드가 null입니다. fallback 에러 이벤트를 적재했습니다. outboxId={}, aggregateId={}, eventType={}",
+                savedErrorOutbox.getId(), aggregateId, eventType);
+            return; // 밑으로 내려가지 않고 여기서 종료
         }
 
         try {
