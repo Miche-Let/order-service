@@ -68,6 +68,10 @@ class OrderCommandServiceTest {
     @Mock
     private OrderStore orderStore;
 
+    // 아웃박스 리스트 캡처용
+    @Captor
+    private ArgumentCaptor<List<InventoryClient.RestoreStockRequest>> restoreListCaptor;
+
     @Test
     @DisplayName("성공: 다중 품목 주문 시 총 주문 금액이 정확히 계산되고 저장되어야 한다")
     void createOrder_Success_Calculation() {
@@ -179,11 +183,20 @@ class OrderCommandServiceTest {
             .isInstanceOf(RuntimeException.class)
             .hasMessageContaining("인벤토리 통신 에러");
 
-        // 첫 번째 상품(성공했던 것)을 다시 돌려놓기 위해 appendCompensation이 호출되었는지 검증
+        // any() 대신 captor 로 낚아채서 내용물까지 검증
         verify(orderStore, times(1)).saveCompensationOutbox(
             eq(reservationId),
-            any()
+            restoreListCaptor.capture()
         );
+
+        List<InventoryClient.RestoreStockRequest> capturedList = restoreListCaptor.getValue();
+
+        // 검증 1: 롤백 대상 리스트에는 딱 1개의 아이템만 있어야 함
+        assertThat(capturedList).hasSize(1);
+
+        // 검증 2: 그 1개의 아이템이 선점에 성공했던 첫 번째 상품(optionId1, 2개)이어야 함
+        assertThat(capturedList.get(0).optionId()).isEqualTo(optionId1);
+        assertThat(capturedList.get(0).quantity()).isEqualTo(2);
     }
 
     @Test
