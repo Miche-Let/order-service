@@ -24,6 +24,13 @@ spring:
 server:
     port: 19700
 
+order:
+    kafka:
+        topic:
+            stock-restore: "stock.restored"
+    outbox:
+        max-retries: 3 # 최대 재시도 횟수 설정
+
 internal:
     auth:
         secret: ${INTERNAL_AUTH_SECRET}
