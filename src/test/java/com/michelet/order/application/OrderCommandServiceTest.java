@@ -64,6 +64,10 @@ class OrderCommandServiceTest {
     @Captor
     private ArgumentCaptor<Order> orderCaptor;
 
+    // OrderStore Mock 객체
+    @Mock
+    private OrderStore orderStore;
+
     @Test
     @DisplayName("성공: 다중 품목 주문 시 총 주문 금액이 정확히 계산되고 저장되어야 한다")
     void createOrder_Success_Calculation() {
@@ -97,13 +101,13 @@ class OrderCommandServiceTest {
             .willReturn(ApiResponse.ok(
                 new CatalogClient.OptionValidationResponse(optionId2, "하우스 와인", new BigDecimal("12000"))));
 
-        given(orderRepository.save(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
+        given(orderStore.saveOrder(any(Order.class))).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
         OrderResult result = orderCommandService.createOrder(command);
 
         // then
-        verify(orderRepository).save(orderCaptor.capture());
+        verify(orderStore).saveOrder(orderCaptor.capture());
         Order savedOrder = orderCaptor.getValue();
 
         // 1. 총액 검증 (55000 * 2 + 12000 * 3 = 146000)
@@ -176,11 +180,9 @@ class OrderCommandServiceTest {
             .hasMessageContaining("인벤토리 통신 에러");
 
         // 첫 번째 상품(성공했던 것)을 다시 돌려놓기 위해 appendCompensation이 호출되었는지 검증
-        verify(orderOutboxHelper, times(1)).appendCompensation(
-            eq("ORDER"),
-            eq(reservationId.toString()),
-            eq("STOCK_RESTORE"),
-            any(StockRestoreEventPayload.class)
+        verify(orderStore, times(1)).saveCompensationOutbox(
+            eq(reservationId),
+            any()
         );
     }
 

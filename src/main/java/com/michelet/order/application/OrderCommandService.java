@@ -24,18 +24,21 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class OrderCommandService {
 
-    private final OrderRepository orderRepository;
+    private final OrderRepository orderRepository; // 다른 메서드에서 쓰기 위해 남겨둠
     private final ReservationValidationPort reservationValidationPort;
     private final InventoryClient inventoryClient;
     private final CatalogClient catalogClient;
 
     private final OrderOutboxHelper orderOutboxHelper;
 
+    private final OrderStore orderStore;
+
     @Transactional(readOnly = true)
     public String checkHealth() {
         return "Order Command Service is Healthy";
     }
 
+    // 트랜잭션 없음 (외부 통신 병목 방지)
     public OrderResult createOrder(CreateOrderCommand command) {
         // 전략 패턴을 통한 예약 검증 (프로필에 따라 진짜 또는 가짜 어댑터가 동작함)
         LocalDate verifiedDate = reservationValidationPort.validateAndGetDate(
@@ -50,6 +53,7 @@ public class OrderCommandService {
 
         try {
             // 0-2. 카탈로그 가격 검증 및 인벤토리 재고 선점 (예약 선점은 일단 동기 유지)
+            // [트랜잭션 밖] 네트워크 통신 구간
             for (CreateOrderCommand.OrderItemCommand item : command.items()) {
                 var catalogRes = catalogClient.validateOption(item.optionId());
                 if (catalogRes == null || catalogRes.data() == null) {
@@ -100,8 +104,8 @@ public class OrderCommandService {
                 orderItems
             );
 
-            // 3. 저장
-            Order savedOrder = orderRepository.save(order);
+            // 3. 저장 - [트랜잭션 진입] DB 저장 위임!
+            Order savedOrder = orderStore.saveOrder(order);
 
             return new OrderResult(savedOrder.getId(), savedOrder.getStatus().name(), savedOrder.getOrderName());
 
@@ -109,25 +113,9 @@ public class OrderCommandService {
             // 성공적으로 선점했던 내역(reservedStocks)만 순회하며 주문 시도 전체에 대한 성공 아이템에 대해서도 복구 기록을 남김
             log.error("주문 생성 중 예외 발생. 보상 트랜잭션(재고 복구)을 Outbox에 저장합니다. 원인: {}", e.getMessage());
 
-            // 반복문 안쪽에 try-catch를 두어 독립적인 실패 추적 및 계속 진행 보장
-            for (InventoryClient.RestoreStockRequest restoreReq : reservedStocks) {
-                try {
-                    orderOutboxHelper.appendCompensation(
-                        "ORDER",
-                        command.reservationId().toString(), // Order가 생성되기 전이므로 예약 ID를 Aggregate ID로 사용
-                        "STOCK_RESTORE",
-                        // UUID.randomUUID()를 통해 고유한 이벤트 식별자(eventId) 발급
-                        new StockRestoreEventPayload(UUID.randomUUID(), restoreReq.optionId(), restoreReq.quantity())
-                    );
-                    log.info("보상 Outbox 저장 완료: 옵션 {} 재고 복구 대기", restoreReq.optionId());
-                } catch (Exception outboxEx) {
-                    // 향후 모니터링/알림 시스템 연동을 위한 상세 로그 기록
-                    log.error(
-                        "[CRITICAL ALERT] 보상 트랜잭션 Outbox 저장 실패. 수동 복구 요망! reservationId: {}, optionId: {}, quantity: {}",
-                        command.reservationId(), restoreReq.optionId(), restoreReq.quantity(), outboxEx);
-                    // TODO: Slack, Datadog 알림 발송 등
-                }
-            }
+            // [트랜잭션 진입] 예외 발생 시 보상 기록 위임!
+            orderStore.saveCompensationOutbox(command.reservationId(), reservedStocks);
+
             throw e;
         }
     }
