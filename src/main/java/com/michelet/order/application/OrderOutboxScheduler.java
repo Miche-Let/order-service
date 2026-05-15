@@ -1,6 +1,7 @@
 package com.michelet.order.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.michelet.order.application.dto.OrderCreatedEventPayload;
 import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.domain.model.OrderOutbox;
 import com.michelet.order.domain.model.OutboxStatus;
@@ -95,8 +96,7 @@ public class OrderOutboxScheduler {
         return switch (eventType) {
             case "STOCK_RESTORE", "STOCK_RESTORED" ->
                 objectMapper.readValue(jsonPayload, StockRestoreEventPayload.class);
-            case "ORDER_CREATED" ->
-                objectMapper.readValue(jsonPayload, com.michelet.order.application.dto.OrderCreatedEventPayload.class);
+            case "ORDER_CREATED" -> objectMapper.readValue(jsonPayload, OrderCreatedEventPayload.class);
             // 취소나 생성 등 다른 이벤트가 추가되면 여기에 case를 늘려가면 됨
             default -> {
                 log.warn("등록되지 않은 알 수 없는 이벤트 타입입니다: {}", eventType);
