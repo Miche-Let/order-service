@@ -171,12 +171,14 @@ class OrderCommandServiceTest {
                 )));
 
         // 첫 번째 상품(optionId1)은 정상적으로 통과되도록 Mock 설정 추가 (Strict Stubbing 해결)
-        given(inventoryClient.reserveStock(new InventoryClient.ReserveStockRequest(optionId1, 2)))
+        given(inventoryClient.reserveStock(
+            new InventoryClient.ReserveStockRequest(optionId1, 2, reservationId)))
             .willReturn(ApiResponse.ok(null));
 
         // 두 번째 아이템 예약 시 강제로 에러를 던지도록 설정
         doThrow(new RuntimeException("인벤토리 통신 에러"))
-            .when(inventoryClient).reserveStock(new InventoryClient.ReserveStockRequest(optionId2, 3));
+            .when(inventoryClient)
+            .reserveStock(new InventoryClient.ReserveStockRequest(optionId2, 3, reservationId));
 
         // when & then
         assertThatThrownBy(() -> orderCommandService.createOrder(command))
@@ -197,6 +199,7 @@ class OrderCommandServiceTest {
         // 검증 2: 그 1개의 아이템이 선점에 성공했던 첫 번째 상품(optionId1, 2개)이어야 함
         assertThat(capturedList.get(0).optionId()).isEqualTo(optionId1);
         assertThat(capturedList.get(0).quantity()).isEqualTo(2);
+        assertThat(capturedList.get(0).reservationId()).isEqualTo(reservationId);
     }
 
     @Test

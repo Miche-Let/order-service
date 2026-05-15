@@ -1,9 +1,9 @@
 ### 환경변수 설정
 @gatewayUrl = http://localhost:19000
 # 취소 검증을 위한 미래 날짜 (레스토랑 1)
-@ord_targetDate_cancel = 2026-05-15
-# 수령 완료 검증을 위한 오늘 날짜 (시스템 기준 5월 14일, 레스토랑 2)
-@ord_targetDate_receive = 2026-05-14
+@ord_targetDate_cancel = 2026-05-20
+# 수령 완료 검증을 위한 오늘 날짜 (시스템 기준 5월 15일, 레스토랑 2)
+@ord_targetDate_receive = 2026-05-15
 @ord_courseUnitPrice = 100000.00
 
 # 슬롯 시작, 끝 시간. 테스트할때마다 수정할것!
@@ -704,5 +704,41 @@ Authorization: Bearer {{ord_userToken}}
         client.log("DB에서 다음을 확인하기:");
         client.log("1. p_orders 테이블: reservation_id = " + client.global.get("fresh_test_reservation_id") + " 데이터가 없어야 함 (Rollback)");
         client.log("2. p_order_outbox 테이블: " + client.global.get("ord_option_id_2_1") + " 에 대한 STOCK_RESTORE 이벤트가 1줄 있어야 함 (REQUIRES_NEW 성공)");
+    });
+%}
+
+
+### [카오스] 1. (인벤토리 켜진 상태) 정상 주문 1건 만들기
+POST http://localhost:19000/api/v1/orders
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+{
+    "restaurantId": "22222222-2222-2222-2222-222222222222",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "취소할 테스트 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [
+        { "optionId": "44444444-4444-4444-4444-444444444444", "quantity": 1 }
+    ]
+}
+
+> {%
+    client.test("주문 생성 성공 확인 (201)", function () {
+        client.assert(response.status === 201, "응답 코드가 201이 아닙니다.");
+        client.assert(response.body.data.orderId !== undefined, "orderId가 존재하지 않습니다.");
+    });
+    client.global.set("created_order_id", response.body.data.orderId);
+%}
+
+### [카오스] 2. (인벤토리 끈 상태) 만들어둔 주문 취소하기 (아웃박스 발동)
+PATCH http://localhost:19000/api/v1/orders/{{created_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+> {%
+    client.test("장애 격리 취소 성공 확인 (200)", function () {
+        client.assert(response.status === 200, "응답 코드가 200이 아닙니다.");
     });
 %}
