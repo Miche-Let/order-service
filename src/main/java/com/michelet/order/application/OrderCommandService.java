@@ -70,8 +70,10 @@ public class OrderCommandService {
                     item.quantity()
                 ));
 
-                inventoryClient.reserveStock(new InventoryClient.ReserveStockRequest(item.optionId(), item.quantity()));
-                reservedStocks.add(new InventoryClient.RestoreStockRequest(item.optionId(), item.quantity()));
+                inventoryClient.reserveStock(
+                    new InventoryClient.ReserveStockRequest(item.optionId(), item.quantity(), command.reservationId()));
+                reservedStocks.add(
+                    new InventoryClient.RestoreStockRequest(item.optionId(), item.quantity(), command.reservationId()));
             }
 
             // 주문 이름 자동 생성 로직

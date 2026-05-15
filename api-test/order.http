@@ -1,9 +1,9 @@
 ### 환경변수 설정
 @gatewayUrl = http://localhost:19000
 # 취소 검증을 위한 미래 날짜 (레스토랑 1)
-@ord_targetDate_cancel = 2026-05-15
-# 수령 완료 검증을 위한 오늘 날짜 (시스템 기준 5월 14일, 레스토랑 2)
-@ord_targetDate_receive = 2026-05-14
+@ord_targetDate_cancel = 2026-05-20
+# 수령 완료 검증을 위한 오늘 날짜 (시스템 기준 5월 15일, 레스토랑 2)
+@ord_targetDate_receive = 2026-05-15
 @ord_courseUnitPrice = 100000.00
 
 # 슬롯 시작, 끝 시간. 테스트할때마다 수정할것!
@@ -453,7 +453,7 @@ Authorization: Bearer {{ord_userToken}}
 @dummy_reservation_id = 33333333-3333-3333-3333-333333333333
 @dummy_restaurant_id = 22222222-2222-2222-2222-222222222222
 @dummy_user_id = 0f9cf6c7-402c-41f4-82ad-11cd7c8d7c8b
-@dummy_user_token = ~~
+@dummy_user_token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwZjljZjZjNy00MDJjLTQxZjQtODJhZC0xMWNkN2M4ZDdjOGIiLCJyb2xlIjoiVVNFUiIsImlhdCI6MTc3ODQ3MzA5NiwiZXhwIjoyMDkzODMzMDk2fQ.7l7W3xjfjEqAo8mCh9N2Tn5SVVLxfknWUwkbUYkGX4s
 
 # 카탈로그/인벤토리 Initializer에 세팅해둔 고정 상품 옵션 ID
 @dummy_invalid_option_id = 99999999-9999-9999-9999-999999999999
@@ -706,3 +706,45 @@ Authorization: Bearer {{ord_userToken}}
         client.log("2. p_order_outbox 테이블: " + client.global.get("ord_option_id_2_1") + " 에 대한 STOCK_RESTORE 이벤트가 1줄 있어야 함 (REQUIRES_NEW 성공)");
     });
 %}
+
+### [카오스 테스트용] 단건 주문 생성 (Inventory 끄고 실행)
+POST http://localhost:19000/api/v1/orders
+Authorization: Bearer {{dummy_user_token}}
+Content-Type: application/json
+
+{
+    "restaurantId": "22222222-2222-2222-2222-222222222222",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "카오스 테스트 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [
+        { "optionId": "44444444-4444-4444-4444-444444444444", "quantity": 1 }
+    ]
+}
+
+### 1. (인벤토리 켜진 상태) 정상 주문 1건 만들기
+POST http://localhost:19000/api/v1/orders
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+{
+    "restaurantId": "22222222-2222-2222-2222-222222222222",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "취소할 테스트 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-06-01T18:00:00",
+    "items": [
+        { "optionId": "44444444-4444-4444-4444-444444444444", "quantity": 1 }
+    ]
+}
+
+> {%
+    // 생성된 주문 ID를 변수에 저장해둡니다.
+    client.global.set("created_order_id", response.body.data.orderId);
+%}
+
+### 2. (인벤토리 끈 상태) 만들어둔 주문 취소하기 (아웃박스 발동)
+PATCH http://localhost:19000/api/v1/orders/e557f254-0909-47df-b8e2-998785093098/cancel
+Authorization: Bearer {{dummy_user_token}}
+Content-Type: application/json

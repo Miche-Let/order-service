@@ -14,9 +14,9 @@ public interface InventoryClient {
     @PostMapping("/internal/stocks/restore")
     ApiResponse<Void> restoreStock(@RequestBody RestoreStockRequest request);
 
-    record ReserveStockRequest(UUID optionId, Integer quantity) {
+    record ReserveStockRequest(UUID optionId, Integer quantity, UUID reservationId) {
     }
 
-    record RestoreStockRequest(UUID optionId, Integer quantity) {
+    record RestoreStockRequest(UUID optionId, Integer quantity, UUID reservationId) {
     }
 }
