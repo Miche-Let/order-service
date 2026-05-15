@@ -453,7 +453,7 @@ Authorization: Bearer {{ord_userToken}}
 @dummy_reservation_id = 33333333-3333-3333-3333-333333333333
 @dummy_restaurant_id = 22222222-2222-2222-2222-222222222222
 @dummy_user_id = 0f9cf6c7-402c-41f4-82ad-11cd7c8d7c8b
-@dummy_user_token = eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIwZjljZjZjNy00MDJjLTQxZjQtODJhZC0xMWNkN2M4ZDdjOGIiLCJyb2xlIjoiVVNFUiIsImlhdCI6MTc3ODQ3MzA5NiwiZXhwIjoyMDkzODMzMDk2fQ.7l7W3xjfjEqAo8mCh9N2Tn5SVVLxfknWUwkbUYkGX4s
+@dummy_user_token = ~~
 
 # 카탈로그/인벤토리 Initializer에 세팅해둔 고정 상품 옵션 ID
 @dummy_invalid_option_id = 99999999-9999-9999-9999-999999999999
