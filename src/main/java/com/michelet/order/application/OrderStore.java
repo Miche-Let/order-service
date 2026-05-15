@@ -1,5 +1,6 @@
 package com.michelet.order.application;
 
+import com.michelet.order.application.dto.OrderCreatedEventPayload;
 import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.repository.OrderRepository;
@@ -26,6 +27,22 @@ public class OrderStore {
     @Transactional
     public Order saveOrder(Order order) {
         return orderRepository.save(order);
+    }
+
+    // 주문 저장과 Outbox 생성을 하나의 트랜잭션으로 묶음
+    @Transactional
+    public Order saveOrderAndOutbox(
+        Order order,
+        OrderCreatedEventPayload payload
+    ) {
+        Order savedOrder = orderRepository.save(order);
+        orderOutboxHelper.append(
+            "ORDER",
+            order.getReservationId().toString(),
+            "ORDER_CREATED",
+            payload)
+        ;
+        return savedOrder;
     }
 
     /**

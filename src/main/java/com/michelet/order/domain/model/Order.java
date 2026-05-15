@@ -83,7 +83,7 @@ public class Order extends BaseEntity {
         this.reservedDate = reservedDate;
         this.receivingMethod = receivingMethod != null ? receivingMethod : ReceivingMethod.PICKUP;
         this.expiredAt = expiredAt;
-        this.status = OrderStatus.OCCUPIED; // MVP 기준 : 주문 생성 즉시 현장 결제 대기 상태
+        this.status = OrderStatus.PENDING; // 비동기 처리이므로 PENDING으로 시작 (MVP 기준 : 주문 생성 즉시 현장 결제 대기 상태)
         this.totalAmount = BigDecimal.ZERO;
     }
 
@@ -112,7 +112,7 @@ public class Order extends BaseEntity {
             .receivingMethod(receivingMethod)
             .expiredAt(expiredAt)
             .build();
-        
+
         // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
         items.forEach(order::addOrderItem);
         return order;
@@ -159,6 +159,19 @@ public class Order extends BaseEntity {
         if (this.orderItems.remove(item)) {
             this.totalAmount = this.totalAmount.subtract(item.getLinePrice());
         }
+    }
+
+    // 인벤토리 승인 시 호출
+    public void occupy() {
+        if (!this.status.canTransitionTo(OrderStatus.OCCUPIED)) {
+            throw new IllegalStateException("주문 확인이 불가능한 상태입니다.");
+        }
+        this.status = OrderStatus.OCCUPIED;
+    }
+
+    // 인벤토리 거절 시 강제 취소 (날짜 체크 무시)
+    public void markAsCanceled() {
+        this.status = OrderStatus.CANCELED;
     }
 
     public void complete() {

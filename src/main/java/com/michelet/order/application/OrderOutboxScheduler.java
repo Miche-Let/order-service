@@ -30,6 +30,9 @@ public class OrderOutboxScheduler {
     @Value("${order.kafka.topic.stock-restore:order.stock-restore.requested}")
     private String stockRestoreTopic;
 
+    @Value("${order.kafka.topic.created:order.created}")
+    private String orderCreatedTopic;
+
     // 5초마다 주기적으로 실행
     @Scheduled(fixedDelay = 5000)
     public void processOutboxEvents() {
@@ -92,6 +95,8 @@ public class OrderOutboxScheduler {
         return switch (eventType) {
             case "STOCK_RESTORE", "STOCK_RESTORED" ->
                 objectMapper.readValue(jsonPayload, StockRestoreEventPayload.class);
+            case "ORDER_CREATED" ->
+                objectMapper.readValue(jsonPayload, com.michelet.order.application.dto.OrderCreatedEventPayload.class);
             // 취소나 생성 등 다른 이벤트가 추가되면 여기에 case를 늘려가면 됨
             default -> {
                 log.warn("등록되지 않은 알 수 없는 이벤트 타입입니다: {}", eventType);
@@ -103,6 +108,8 @@ public class OrderOutboxScheduler {
     private String resolveTopic(String eventType) {
         return switch (eventType) {
             case "STOCK_RESTORE", "STOCK_RESTORED" -> stockRestoreTopic;
+            case "ORDER_CREATED" -> orderCreatedTopic;
+            // 취소나 생성 등 다른 이벤트가 추가되면 여기에 case를 늘려가면 됨
             default -> "order.unknown.event";
         };
     }

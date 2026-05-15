@@ -10,4 +10,6 @@ public interface OrderRepository {
     Optional<Order> findById(UUID id);
 
     boolean existsByReservationId(UUID reservationId);
+
+    Optional<Order> findByReservationId(UUID reservationId);
 }
