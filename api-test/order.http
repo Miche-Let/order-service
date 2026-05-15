@@ -745,6 +745,6 @@ Content-Type: application/json
 %}
 
 ### 2. (인벤토리 끈 상태) 만들어둔 주문 취소하기 (아웃박스 발동)
-PATCH http://localhost:19000/api/v1/orders/e557f254-0909-47df-b8e2-998785093098/cancel
-Authorization: Bearer {{dummy_user_token}}
+PATCH http://localhost:19000/api/v1/orders/{{created_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
 Content-Type: application/json
