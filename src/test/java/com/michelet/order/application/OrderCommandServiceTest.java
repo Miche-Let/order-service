@@ -199,6 +199,7 @@ class OrderCommandServiceTest {
         // 검증 2: 그 1개의 아이템이 선점에 성공했던 첫 번째 상품(optionId1, 2개)이어야 함
         assertThat(capturedList.get(0).optionId()).isEqualTo(optionId1);
         assertThat(capturedList.get(0).quantity()).isEqualTo(2);
+        assertThat(capturedList.get(0).reservationId()).isEqualTo(reservationId);
     }
 
     @Test

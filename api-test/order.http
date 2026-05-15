@@ -707,23 +707,8 @@ Authorization: Bearer {{ord_userToken}}
     });
 %}
 
-### [카오스 테스트용] 단건 주문 생성 (Inventory 끄고 실행)
-POST http://localhost:19000/api/v1/orders
-Authorization: Bearer {{dummy_user_token}}
-Content-Type: application/json
 
-{
-    "restaurantId": "22222222-2222-2222-2222-222222222222",
-    "reservationId": "{{$random.uuid}}",
-    "orderName": "카오스 테스트 주문",
-    "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
-    "items": [
-        { "optionId": "44444444-4444-4444-4444-444444444444", "quantity": 1 }
-    ]
-}
-
-### 1. (인벤토리 켜진 상태) 정상 주문 1건 만들기
+### [카오스] 1. (인벤토리 켜진 상태) 정상 주문 1건 만들기
 POST http://localhost:19000/api/v1/orders
 Authorization: Bearer {{ord_userToken}}
 Content-Type: application/json
@@ -740,11 +725,20 @@ Content-Type: application/json
 }
 
 > {%
-    // 생성된 주문 ID를 변수에 저장해둡니다.
+    client.test("주문 생성 성공 확인 (201)", function () {
+        client.assert(response.status === 201, "응답 코드가 201이 아닙니다.");
+        client.assert(response.body.data.orderId !== undefined, "orderId가 존재하지 않습니다.");
+    });
     client.global.set("created_order_id", response.body.data.orderId);
 %}
 
-### 2. (인벤토리 끈 상태) 만들어둔 주문 취소하기 (아웃박스 발동)
+### [카오스] 2. (인벤토리 끈 상태) 만들어둔 주문 취소하기 (아웃박스 발동)
 PATCH http://localhost:19000/api/v1/orders/{{created_order_id}}/cancel
 Authorization: Bearer {{ord_userToken}}
 Content-Type: application/json
+
+> {%
+    client.test("장애 격리 취소 성공 확인 (200)", function () {
+        client.assert(response.status === 200, "응답 코드가 200이 아닙니다.");
+    });
+%}
