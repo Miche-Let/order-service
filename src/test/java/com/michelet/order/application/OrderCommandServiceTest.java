@@ -182,11 +182,12 @@ class OrderCommandServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         UUID optionId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID(); // 예약 ID 변수 추가
 
         OrderItem item = OrderItem.create(optionId, "테스트상품", new BigDecimal("1000"), 2);
         Order order = Order.create(
             userId,
-            UUID.randomUUID(),
+            reservationId, // 위에서 만든 예약 ID 주입
             UUID.randomUUID(),
             "테스트 주문",
             LocalDate.now().plusDays(1),
@@ -207,7 +208,7 @@ class OrderCommandServiceTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
         verify(orderOutboxHelper, times(1)).append(
             eq("ORDER"),
-            eq(orderId.toString()),
+            eq(reservationId.toString()), // 파티션 키가 reservationId로 잘 넘어갔는지 검증
             eq("STOCK_RESTORE"),
             any(StockRestoreEventPayload.class)
         );

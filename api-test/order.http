@@ -809,7 +809,7 @@ Content-Type: application/json
     });
 %}
 
-### 0. 오더 테스트용 상품 2 등록 (Owner) - saveCompensationOutbox 삭제 후 테스트용
+### 0. 카프카 - 오더 테스트용 상품 2 등록 (Owner) - saveCompensationOutbox 삭제 후 테스트용
 POST {{gatewayUrl}}/api/v1/products
 Content-Type: application/json
 Authorization: Bearer {{ord_ownerToken}}
@@ -882,5 +882,100 @@ Authorization: Bearer {{ord_userToken}}
         client.assert(response.status === 200, "조회 실패");
         client.assert(response.body.data.status === "CANCELED", "주문이 CANCELED 상태가 아님 - 아직 처리 중이거나 Saga 롤백에 실패.");
         client.log("2단계 성공! 인벤토리가 재고 부족을 감지하여 ORDER_REJECTED를 발행했고, 오더 서비스가 이를 받아 CANCELED로 롤백.");
+    });
+%}
+
+
+### 1. 정상 주문 생성 (테스트용 상품 1개) - [엣지 케이스 시뮬레이션] 결정적 UUID(Deterministic UUID) 멱등성 검증
+POST http://localhost:19000/api/v1/orders
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+{
+    "restaurantId": "{{dummy_restaurant_id}}",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "결정적 UUID 멱등성 테스트",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-12-31T18:00:00",
+    "items": [
+        {
+            "optionId": "{{ord_option_id_2_1_kafka}}",
+            "quantity": 1
+        }
+    ]
+}
+
+> {%
+    client.test("정상 주문 생성", function () {
+        client.assert(response.status === 201, "201 응답 실패");
+        client.global.set("idempotency_test_order_id", response.body.data.orderId);
+        client.log("주문 생성 완료. Order ID: " + response.body.data.orderId);
+    });
+%}
+
+### 2. 유저의 기습 취소 요청 (이 시점에 첫 번째 STOCK_RESTORE 발행) - [엣지 케이스 시뮬레이션] 결정적 UUID(Deterministic UUID) 멱등성 검증
+# 이 요청 직후, 인벤토리에서 뒤늦게 승인(ORDER_APPROVED) 메시지가 도착하면 두 번째 STOCK_RESTORE가 발행됨
+PATCH http://localhost:19000/api/v1/orders/{{idempotency_test_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+> {%
+    client.test("기습 취소 완료", function () {
+        client.assert(response.status === 200, "취소 실패");
+        client.log("취소 완료! 이제 콘솔 로그와 DB에서 결정적 UUID가 잘 적용되었는지 확인 필요.");
+    });
+%}
+
+
+### 1. [순서 보장 테스트] 주문 생성 (동시에 인벤토리 차감 커맨드 발행) - 단일 토픽 & 파티션 키 라우팅 (순서 역전 및 재고 누수 해결)
+POST {{gatewayUrl}}/api/v1/orders
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+{
+    "restaurantId": "{{dummy_restaurant_id}}",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "단일 토픽 순서 보장 테스트 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-12-31T18:00:00",
+    "items": [
+        {
+            "optionId": "{{ord_option_id_2_1_kafka}}",
+            "quantity": 1
+        }
+    ]
+}
+
+> {%
+    client.test("정상 주문 PENDING 상태로 큐 적재 성공", function () {
+        client.assert(response.status === 201, "201 응답 실패! 설정 다시 확인 필요.");
+        client.global.set("order_in_order_id", response.body.data.orderId);
+        client.log("1단계 완료: 주문 ID = " + response.body.data.orderId);
+    });
+%}
+
+### 2. [기습 취소 실행] 생성 직후 즉시 취소 요청 (복구 커맨드를 동일 토픽+동일 키로 발행) - 단일 토픽 & 파티션 키 라우팅 (순서 역전 및 재고 누수 해결)
+# 1번 요청을 보내자마자 최대한 빠르게 실행해야 함 (동시성 경합 유도)
+PATCH {{gatewayUrl}}/api/v1/orders/{{order_in_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+> {%
+    client.test("유저 기습 취소 API 호출 성공", function () {
+        client.assert(response.status === 200, "취소 API 호출 실패");
+        client.log("2단계 완료: 이제 인벤토리 콘솔 로그와 DB p_stocks 테이블을 검증해야 함.");
+    });
+%}
+
+### 3. [최종 검증] 오더 서비스 측 주문 상태가 CANCELED로 완료되었는지 확인 - 단일 토픽 & 파티션 키 라우팅 (순서 역전 및 재고 누수 해결)
+GET {{gatewayUrl}}/api/v1/orders/{{order_in_order_id}}
+Accept: application/json
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    client.test("최종 주문 상태 CANCELED 확인", function () {
+        client.assert(response.status === 200, "조회 실패");
+        client.assert(response.body.data.status === "CANCELED", "주문이 아직 PENDING이거나 롤백되지 않았음.");
+        client.log("3단계 완료: 주문 상태가 정상적으로 CANCELED로 처리됨.");
     });
 %}

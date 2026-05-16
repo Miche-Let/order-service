@@ -117,7 +117,11 @@ public class OrderCommandService {
         // 3. PENDING 상태로 주문 저장 및 아웃박스 동시 기록
         Order savedOrder = orderStore.saveOrderAndOutbox(order, payload);
 
-        return new OrderResult(savedOrder.getId(), savedOrder.getStatus().name(), savedOrder.getOrderName());
+        return new OrderResult(
+            savedOrder.getId(),
+            savedOrder.getStatus().name(),
+            savedOrder.getOrderName()
+        );
     }
 
     // 인벤토리에서 승인 완료 메시지가 오면 상태 변경
@@ -136,9 +140,19 @@ public class OrderCommandService {
                 // -> 이로 인해 발생할 수 있는 2번의 복구 이벤트는 인벤토리 서비스의 멱등성 처리로 안전하게 무시됨!
                 log.warn("[Order Saga Edge-Case] 이미 유저가 취소한 주문에 대해 승인이 도착했습니다. 인벤토리 롤백 이벤트를 발행합니다: {}", reservationId);
                 for (OrderItem item : order.getOrderItems()) {
+                    // 동일한 비즈니스 행위에 대해 결정적(Deterministic) UUID 기반의 고유 식별자 발급
+                    String uniqueKey = "RESTORE_" + order.getId().toString() + "_" + item.getOptionId().toString();
+                    UUID deterministicEventId = UUID.nameUUIDFromBytes(uniqueKey.getBytes());
+
                     orderOutboxHelper.append(
-                        "ORDER", order.getId().toString(), "STOCK_RESTORE",
-                        new StockRestoreEventPayload(UUID.randomUUID(), item.getOptionId(), item.getQuantity())
+                        "ORDER",
+                        order.getReservationId().toString(), //ORDER_CREATED와 똑같은 카프카 파티션에 들어가게 만들기 위함
+                        "STOCK_RESTORE",
+                        new StockRestoreEventPayload(
+                            deterministicEventId,
+                            item.getOptionId(),
+                            item.getQuantity()
+                        )
                     );
                 }
             } else {
@@ -181,11 +195,19 @@ public class OrderCommandService {
         order.cancel(LocalDate.now());
 
         for (OrderItem item : order.getOrderItems()) {
+            // 동일한 비즈니스 행위에 대해 결정적(Deterministic) UUID 기반의 고유 식별자 발급
+            String uniqueKey = "RESTORE_" + order.getId().toString() + "_" + item.getOptionId().toString();
+            UUID deterministicEventId = UUID.nameUUIDFromBytes(uniqueKey.getBytes());
+
             orderOutboxHelper.append(
                 "ORDER",
-                order.getId().toString(),
+                order.getReservationId().toString(), //ORDER_CREATED와 똑같은 카프카 파티션에 들어가게 만들기 위함
                 "STOCK_RESTORE",
-                new StockRestoreEventPayload(UUID.randomUUID(), item.getOptionId(), item.getQuantity())
+                new StockRestoreEventPayload(
+                    deterministicEventId,
+                    item.getOptionId(),
+                    item.getQuantity()
+                )
             );
             log.info("주문 취소에 따른 재고 복구 Outbox 저장 완료: optionId={}, quantity={}", item.getOptionId(), item.getQuantity());
         }
@@ -213,6 +235,10 @@ public class OrderCommandService {
     public OrderResult getOrder(UUID orderId) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
-        return new OrderResult(order.getId(), order.getStatus().name(), order.getOrderName());
+        return new OrderResult(
+            order.getId(),
+            order.getStatus().name(),
+            order.getOrderName()
+        );
     }
 }

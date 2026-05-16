@@ -39,10 +39,11 @@ server:
 order:
     kafka:
         topic:
-            created: "order.created"
+            # 개별 토픽을 단일 커맨드 토픽(inventory.command)으로 통일
+            created: "inventory.command"
+            stock-restore: "inventory.command"
             approved: "order.approved"
             rejected: "order.rejected"
-            stock-restore: "order.stock-restore.requested"
     outbox:
         max-retries: 3 # 최대 재시도 횟수 설정
 
