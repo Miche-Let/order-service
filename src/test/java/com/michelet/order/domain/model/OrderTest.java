@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class OrderTest {
 
     @Test
-    @DisplayName("성공: 주문 생성 시 총 금액이 각 항목의 (가격 * 수량) 합계와 일치해야 한다")
+    @DisplayName("성공: 주문 생성 시 총 금액이 각 항목의 (가격 * 수량) 합계와 일치하고 상태는 PENDING이어야 한다")
     void createOrder_TotalAmountCalculation() {
         // given
         OrderItem item1 = OrderItem.create(UUID.randomUUID(), "상품A", new BigDecimal("10000"), 2); // 20000
@@ -34,7 +34,7 @@ class OrderTest {
 
         // then
         assertThat(order.getTotalAmount()).isEqualByComparingTo(new BigDecimal("36500"));
-        assertThat(order.getStatus()).isEqualTo(OrderStatus.OCCUPIED);
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
     }
 
     @Test
@@ -42,12 +42,14 @@ class OrderTest {
     void statusTransition_Success() {
         // given
         Order order = createDefaultOrder();
+        order.occupy(); // 인벤토리 승인이 떨어져서 PENDING -> OCCUPIED 가 된 상황 시뮬레이션
 
         // when & then
         order.complete();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
 
         Order order2 = createDefaultOrder();
+        order2.occupy();
         order2.cancel(LocalDate.now());
         assertThat(order2.getStatus()).isEqualTo(OrderStatus.CANCELED);
     }
@@ -58,6 +60,7 @@ class OrderTest {
         // 1. 이미 취소된 주문을 다시 완료(complete) 처리 하려는 경우
         // given
         Order order = createDefaultOrder();
+        order.occupy();
         order.cancel(LocalDate.now());
 
         // when & then
@@ -68,8 +71,9 @@ class OrderTest {
         // 2. 이미 수령 완료된 주문을 취소(cancel) 하려는 경우
         // given
         Order order2 = createDefaultOrderForToday(); // 수령은 '당일'만 가능하므로 별도 생성
-        order2.complete();
-        order2.receive(LocalDate.now());
+        order2.occupy();   // PENDING -> OCCUPIED
+        order2.complete(); // OCCUPIED -> COMPLETED
+        order2.receive(LocalDate.now()); // COMPLETED -> RECEIVED
 
         // when & then
         assertThatThrownBy(() -> order2.cancel(LocalDate.now()))
@@ -109,6 +113,7 @@ class OrderTest {
     void statusTransition_Fail_CanceledToCompleted() {
         // given
         Order order = createDefaultOrder();
+        order.occupy();
         order.cancel(LocalDate.now());
 
         // when & then

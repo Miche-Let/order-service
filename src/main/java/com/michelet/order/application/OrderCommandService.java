@@ -1,15 +1,16 @@
 package com.michelet.order.application;
 
 import com.michelet.order.application.dto.CreateOrderCommand;
+import com.michelet.order.application.dto.OrderCreatedEventPayload;
 import com.michelet.order.application.dto.OrderResult;
 import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.application.port.out.ReservationValidationPort;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.model.OrderItem;
+import com.michelet.order.domain.model.OrderStatus;
 import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.domain.repository.OrderRepository;
 import com.michelet.order.infrastructure.client.CatalogClient;
-import com.michelet.order.infrastructure.client.InventoryClient;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -26,7 +27,6 @@ public class OrderCommandService {
 
     private final OrderRepository orderRepository; // 다른 메서드에서 쓰기 위해 남겨둠
     private final ReservationValidationPort reservationValidationPort;
-    private final InventoryClient inventoryClient;
     private final CatalogClient catalogClient;
 
     private final OrderOutboxHelper orderOutboxHelper;
@@ -47,79 +47,125 @@ public class OrderCommandService {
             command.restaurantId()
         );
 
-        // 보상 트랜잭션 기록용 리스트 및 주문 상품 스냅샷 리스트
-        List<InventoryClient.RestoreStockRequest> reservedStocks = new ArrayList<>();
         List<OrderItem> orderItems = new ArrayList<>();
 
-        try {
-            // 0-2. 카탈로그 가격 검증 및 인벤토리 재고 선점 (예약 선점은 일단 동기 유지)
-            // [트랜잭션 밖] 네트워크 통신 구간
-            for (CreateOrderCommand.OrderItemCommand item : command.items()) {
-                var catalogRes = catalogClient.validateOption(item.optionId());
-                if (catalogRes == null || catalogRes.data() == null) {
-                    throw new IllegalArgumentException("상품 옵션 정보를 확인할 수 없습니다.");
-                }
-
-                var catalogData = catalogRes.data();
-
-                // 1. 카탈로그에서 검증된 진짜 이름과 가격으로 OrderItem 스냅샷 생성
-                orderItems.add(OrderItem.create(
-                    catalogData.optionId(),
-                    catalogData.name(),
-                    catalogData.totalPrice(),
-                    item.quantity()
-                ));
-
-                inventoryClient.reserveStock(
-                    new InventoryClient.ReserveStockRequest(item.optionId(), item.quantity(), command.reservationId()));
-                reservedStocks.add(
-                    new InventoryClient.RestoreStockRequest(item.optionId(), item.quantity(), command.reservationId()));
+        // 1. 인벤토리 Feign 호출 전면 제거 (순수 카탈로그 가격 검증만 진행)
+        for (CreateOrderCommand.OrderItemCommand item : command.items()) {
+            var catalogRes = catalogClient.validateOption(item.optionId());
+            if (catalogRes == null || catalogRes.data() == null) {
+                throw new IllegalArgumentException("상품 옵션 정보를 확인할 수 없습니다.");
             }
 
-            // 주문 이름 자동 생성 로직
-            String finalOrderName = command.orderName();
-            if (finalOrderName == null || finalOrderName.isBlank()) {
-                // 카탈로그에서 가져온 첫 번째 상품명 추출
-                String firstName = orderItems.get(0).getProductName();
-                finalOrderName = (orderItems.size() > 1)
-                    ? firstName + " 외 " + (orderItems.size() - 1) + "건"
-                    : firstName;
-            }
+            var catalogData = catalogRes.data();
 
-            // 2. Aggregate Root(Order) 생성 및 계산
-            ReceivingMethod method;
-            try {
-                method = command.receivingMethod() != null ?
-                    ReceivingMethod.valueOf(command.receivingMethod().toUpperCase()) : ReceivingMethod.PICKUP;
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("지원하지 않는 수령 방법입니다: " + command.receivingMethod());
-            }
+//            // 우회 테스트용 - 통신을 기다리지 않고, 0초 만에 더미 데이터를 반환하도록 강제 우회함
+//            var catalogData = new CatalogClient.OptionValidationResponse(
+//                item.optionId(),
+//                "병목 증명용 더미 상품",
+//                new java.math.BigDecimal("10000")
+//            );
 
-            Order order = Order.create(
-                command.userId(),
-                command.reservationId(),
-                command.restaurantId(),
-                finalOrderName,
-                verifiedDate, // 포트를 통해 받아온 날짜
-                method,
-                command.expiredAt(),
-                orderItems
-            );
-
-            // 3. 저장 - [트랜잭션 진입] DB 저장 위임!
-            Order savedOrder = orderStore.saveOrder(order);
-
-            return new OrderResult(savedOrder.getId(), savedOrder.getStatus().name(), savedOrder.getOrderName());
-
-        } catch (Exception e) {
-            // 성공적으로 선점했던 내역(reservedStocks)만 순회하며 주문 시도 전체에 대한 성공 아이템에 대해서도 복구 기록을 남김
-            log.error("주문 생성 중 예외 발생. 보상 트랜잭션(재고 복구)을 Outbox에 저장합니다. 원인: {}", e.getMessage());
-
-            // [트랜잭션 진입] 예외 발생 시 보상 기록 위임!
-            orderStore.saveCompensationOutbox(command.reservationId(), reservedStocks);
-
-            throw e;
+            // 카탈로그에서 검증된 진짜 이름과 가격으로 OrderItem 스냅샷 생성
+            orderItems.add(OrderItem.create(
+                catalogData.optionId(),
+                catalogData.name(),
+                catalogData.totalPrice(),
+                item.quantity()
+            ));
         }
+
+        // 주문 이름 자동 생성 로직
+        String finalOrderName = command.orderName();
+        if (finalOrderName == null || finalOrderName.isBlank()) {
+            // 카탈로그에서 가져온 첫 번째 상품명 추출
+            String firstName = orderItems.get(0).getProductName();
+            finalOrderName = (orderItems.size() > 1)
+                ? firstName + " 외 " + (orderItems.size() - 1) + "건"
+                : firstName;
+        }
+
+        // Aggregate Root(Order) 생성 및 계산
+        ReceivingMethod method;
+        try {
+            method = command.receivingMethod() != null ?
+                ReceivingMethod.valueOf(command.receivingMethod().toUpperCase()) : ReceivingMethod.PICKUP;
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("지원하지 않는 수령 방법입니다: " + command.receivingMethod());
+        }
+
+        Order order = Order.create(
+            command.userId(),
+            command.reservationId(),
+            command.restaurantId(),
+            finalOrderName,
+            verifiedDate, // 포트를 통해 받아온 날짜
+            method,
+            command.expiredAt(),
+            orderItems
+        );
+
+        // 2. 카프카 전송용 페이로드 생성
+        OrderCreatedEventPayload payload = new OrderCreatedEventPayload(
+            UUID.randomUUID(), command.reservationId(),
+            orderItems.stream()
+                .map(i -> new OrderCreatedEventPayload.OrderItemPayload(
+                    i.getOptionId(),
+                    i.getQuantity()
+                )).toList()
+        );
+
+        // 3. PENDING 상태로 주문 저장 및 아웃박스 동시 기록
+        Order savedOrder = orderStore.saveOrderAndOutbox(order, payload);
+
+        return new OrderResult(savedOrder.getId(), savedOrder.getStatus().name(), savedOrder.getOrderName());
+    }
+
+    // 인벤토리에서 승인 완료 메시지가 오면 상태 변경
+    @Transactional
+    public void approveOrder(UUID reservationId) {
+        Order order = orderRepository.findByReservationId(reservationId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        // 이미 처리되었거나 상태가 넘어간 경우 (멱등성 방어)
+        if (order.getStatus() != OrderStatus.PENDING) {
+            if (order.getStatus() == OrderStatus.CANCELED) {
+                // 멱등성 및 중복 이벤트 발행 의도에 대한 문서화 주석
+                // - 유저 취소 시 cancelOrder()에서 이미 STOCK_RESTORE가 한 번 발행되었을 수 있음.
+                // - 그러나 인벤토리가 찰나의 순간에 ORDER_CREATED를 먼저 처리하고 승인을 보낸 상황이므로,
+                // - 확실한 재고 원복을 위해 방어적으로 STOCK_RESTORE를 한 번 더 재발행함
+                // -> 이로 인해 발생할 수 있는 2번의 복구 이벤트는 인벤토리 서비스의 멱등성 처리로 안전하게 무시됨!
+                log.warn("[Order Saga Edge-Case] 이미 유저가 취소한 주문에 대해 승인이 도착했습니다. 인벤토리 롤백 이벤트를 발행합니다: {}", reservationId);
+                for (OrderItem item : order.getOrderItems()) {
+                    orderOutboxHelper.append(
+                        "ORDER", order.getId().toString(), "STOCK_RESTORE",
+                        new StockRestoreEventPayload(UUID.randomUUID(), item.getOptionId(), item.getQuantity())
+                    );
+                }
+            } else {
+                log.info("[Idempotency] 이미 처리된 주문입니다. (현재 상태: {})", order.getStatus());
+            }
+            return; // 상태 변경 없이 안전하게 종료
+        }
+
+        // 정상 PENDING 상태라면 승인 처리 (이때 Order.occupy() 가 호출됨)
+        order.occupy();
+        log.info("[Order Saga] 예약 승인 및 주문 최종 확정 완료: {}", reservationId);
+    }
+
+    // 인벤토리에서 재고 부족 등으로 거절 메시지가 오면 강제 취소
+    @Transactional
+    public void rejectOrder(UUID reservationId, String reason) {
+        Order order = orderRepository.findByReservationId(reservationId)
+            .orElseThrow(() -> new IllegalArgumentException("주문을 찾을 수 없습니다."));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            log.info("[Idempotency] 이미 처리된 주문입니다. (현재 상태: {})", order.getStatus());
+            return;
+        }
+
+        // 강제 취소 메서드 - 사유와 함께 전달
+        order.forceCancelBySystem(reason);
+        log.error("[Order Saga] 인벤토리 재고 부족으로 주문 강제 취소: {}, 사유: {}", reservationId, reason);
     }
 
     @Transactional

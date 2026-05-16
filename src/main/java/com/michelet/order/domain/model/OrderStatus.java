@@ -6,20 +6,23 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum OrderStatus {
-    PENDING("결제 대기"),
-    OCCUPIED("주문 생성(현장 결제 대기)"),
+    PENDING("주문 대기(재고 확인 중)"),
+    OCCUPIED("주문 승인(현장 결제 대기)"),
     COMPLETED("주문 완료"),
     CANCELED("주문 취소"),
     RECEIVED("수령 완료");
 
     private final String description;
 
-
-    //상태 전이 가능 여부 체크
-    // - PENDING, OCCUPIED 상태에서는 COMPLETED(완료) 또는 CANCELED(취소)로 전이가 가능해야 함
-    // - COMPLETED 상태에서는 RECEIVED(수령) 또는 CANCELED(취소)로 전이가 가능해야 함
+    // 상태 전이 가능 여부 체크
+    // - PENDING: 재고 확인 중 → OCCUPIED(승인) 또는 CANCELED(거절/취소)로 전이
+    // - OCCUPIED: 현장 결제 대기 → COMPLETED(완료) 또는 CANCELED(취소)로 전이
+    // - COMPLETED: 주문 완료 → RECEIVED(수령) 또는 CANCELED(취소)로 전이
     public boolean canTransitionTo(OrderStatus nextStatus) {
-        if (this == PENDING || this == OCCUPIED) {
+        if (this == PENDING) {
+            return nextStatus == OCCUPIED || nextStatus == CANCELED;
+        }
+        if (this == OCCUPIED) {
             return nextStatus == COMPLETED || nextStatus == CANCELED;
         }
         if (this == COMPLETED) {

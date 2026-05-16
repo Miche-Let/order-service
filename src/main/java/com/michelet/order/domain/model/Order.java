@@ -73,6 +73,10 @@ public class Order extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    // 시스템에 의한 강제 취소 시 사유를 기록하기 위한 필드
+    @Column(length = 255)
+    private String cancellationReason;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Order(UUID userId, UUID reservationId, UUID restaurantId, String orderName, LocalDate reservedDate,
                   ReceivingMethod receivingMethod, LocalDateTime expiredAt) {
@@ -83,7 +87,7 @@ public class Order extends BaseEntity {
         this.reservedDate = reservedDate;
         this.receivingMethod = receivingMethod != null ? receivingMethod : ReceivingMethod.PICKUP;
         this.expiredAt = expiredAt;
-        this.status = OrderStatus.OCCUPIED; // MVP 기준 : 주문 생성 즉시 현장 결제 대기 상태
+        this.status = OrderStatus.PENDING; // 비동기 처리이므로 PENDING으로 시작 (MVP 기준 : 주문 생성 즉시 현장 결제 대기 상태)
         this.totalAmount = BigDecimal.ZERO;
     }
 
@@ -112,7 +116,7 @@ public class Order extends BaseEntity {
             .receivingMethod(receivingMethod)
             .expiredAt(expiredAt)
             .build();
-        
+
         // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
         items.forEach(order::addOrderItem);
         return order;
@@ -159,6 +163,41 @@ public class Order extends BaseEntity {
         if (this.orderItems.remove(item)) {
             this.totalAmount = this.totalAmount.subtract(item.getLinePrice());
         }
+    }
+
+    // 인벤토리 승인 시 호출
+    public void occupy() {
+        if (!this.status.canTransitionTo(OrderStatus.OCCUPIED)) {
+            throw new IllegalStateException("주문 확인이 불가능한 상태입니다.");
+        }
+        this.status = OrderStatus.OCCUPIED;
+    }
+
+    // 인벤토리 거절 등 시스템 사유로 강제 취소 (방어적 프로그래밍 적용)
+    public void forceCancelBySystem(String reason) {
+        // 1. 이미 취소된 상태라면 멱등성 보장을 위해 조기 반환 (카프카 재시도 방어)
+        if (this.status == OrderStatus.CANCELED) {
+            return;
+        }
+
+        // 2. 이미 완료되거나 수령된 상태(Terminal Status)인지 체크
+        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.RECEIVED) {
+            throw new IllegalStateException("이미 완료되거나 수령된 주문은 강제 취소할 수 없습니다.");
+        }
+
+        // 3. 강제 취소 사유 파라미터 검증
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("강제 취소 사유는 필수입니다.");
+        }
+
+        // 4. DB 컬럼 제약(255자)에 맞게 Data Truncation 방어
+        String trimmedReason = reason.trim();
+        if (trimmedReason.length() > 255) {
+            trimmedReason = trimmedReason.substring(0, 255);
+        }
+
+        this.status = OrderStatus.CANCELED;
+        this.cancellationReason = trimmedReason;
     }
 
     public void complete() {
