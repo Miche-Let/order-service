@@ -73,6 +73,10 @@ public class Order extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal totalAmount;
 
+    // 시스템에 의한 강제 취소 시 사유를 기록하기 위한 필드
+    @Column(length = 255)
+    private String cancellationReason;
+
     @Builder(access = AccessLevel.PRIVATE)
     private Order(UUID userId, UUID reservationId, UUID restaurantId, String orderName, LocalDate reservedDate,
                   ReceivingMethod receivingMethod, LocalDateTime expiredAt) {
@@ -169,9 +173,10 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.OCCUPIED;
     }
 
-    // 인벤토리 거절 시 강제 취소 (날짜 체크 무시)
-    public void markAsCanceled() {
+    // 인벤토리 거절 등 시스템 사유로 강제 취소 (날짜 체크 무시 및 사유 기록)
+    public void forceCancelBySystem(String reason) {
         this.status = OrderStatus.CANCELED;
+        this.cancellationReason = reason;
     }
 
     public void complete() {

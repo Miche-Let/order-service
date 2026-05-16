@@ -18,6 +18,11 @@ public record OrderCreatedEventPayload(
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("주문 항목은 1개 이상이어야 합니다.");
         }
+        if (items.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException("주문 항목에 null 값이 포함될 수 없습니다.");
+        }
+        // 방어적 복사를 통한 불변성 강화
+        items = List.copyOf(items);
     }
 
     public record OrderItemPayload(UUID optionId, Integer quantity) {

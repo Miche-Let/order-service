@@ -7,7 +7,8 @@
 @closeTime = 23:45:00
 
 ### 0. [날짜 준비] JS로 동적 날짜 계산 및 글로벌 변수 할당
-GET https://httpbin.org/get
+GET http://localhost:19000/actuator/health
+Authorization: Bearer {{ord_userToken}}
 
 > {%
     function getFormattedDate(daysToAdd) {
@@ -28,7 +29,8 @@ GET https://httpbin.org/get
     client.test("날짜 변수 할당 성공", function () {
         client.assert(client.global.get("ord_targetDate_receive") !== undefined);
         client.log("계산된 수령일: " + receiveDate);
-        client.log("계산된 만료일: " + cancelDate);
+        client.assert(client.global.get("ord_targetDate_cancel") !== undefined);
+        client.log("계산된 취소일: " + cancelDate);
     });
 %}
 

@@ -158,7 +158,8 @@ public class OrderCommandService {
             return;
         }
 
-        order.markAsCanceled();
+        // 강제 취소 메서드 - 사유와 함께 전달
+        order.forceCancelBySystem(reason);
         log.error("[Order Saga] 인벤토리 재고 부족으로 주문 강제 취소: {}, 사유: {}", reservationId, reason);
     }
 
