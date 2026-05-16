@@ -979,3 +979,46 @@ Authorization: Bearer {{ord_userToken}}
         client.log("3단계 완료: 주문 상태가 정상적으로 CANCELED로 처리됨.");
     });
 %}
+
+### 01. [주문 생성] 동일한 optionId의 상품을 장바구니에 나누어 담아 중복 요청 유도
+POST {{gatewayUrl}}/api/v1/orders
+Authorization: Bearer {{ord_userToken}}
+Content-Type: application/json
+
+{
+    "restaurantId": "{{dummy_restaurant_id}}",
+    "reservationId": "{{$random.uuid}}",
+    "orderName": "단일 토픽 순서 보장 테스트 주문",
+    "receivingMethod": "PICKUP",
+    "expiredAt": "2026-12-31T18:00:00",
+    "items": [
+        {
+            "optionId": "{{ord_option_id_2_1_kafka}}",
+            "quantity": 2
+        },
+        {
+             "optionId": "{{ord_option_id_2_1_kafka}}",
+             "quantity": 3
+        }
+    ]
+}
+
+> {%
+    client.test("주문 생성 성공 및 데이터 추출", function () {
+        client.assert(response.status === 201, "주문 등록에 실패했습니다.");
+        client.global.set("order_in_order_id", response.body.data.orderId);
+        client.log("생성된 가짜 주문 고유 ID: " + response.body.data.orderId);
+    });
+%}
+
+### 02. [주문 취소] 생성된 주문을 취소하여 집계 스케줄러 트리거 구동 - 조금 시간 지나서 확정된 뒤에 실행
+PATCH {{gatewayUrl}}/api/v1/orders/{{order_in_order_id}}/cancel
+Authorization: Bearer {{ord_userToken}}
+
+> {%
+    client.test("주문 취소 및 Outbox 원자성 적재 성공 확인", function () {
+        client.assert(response.status === 200, "주문 취소 요청에 실패했습니다.");
+        client.log("주문 취소 처리 성공! 이제 오더 서비스 서버 콘솔에 '수량 5(2+3)'로 합산된 로그가 1줄만 출력되었는지 검증 필요.");
+        client.log("예: 주문 변경/취소에 따른 재고 복구 Outbox 저장 완료: optionId= ~, quantity=5");
+    });
+%}

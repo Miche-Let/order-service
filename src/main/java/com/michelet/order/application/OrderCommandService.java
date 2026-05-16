@@ -11,10 +11,13 @@ import com.michelet.order.domain.model.OrderStatus;
 import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.domain.repository.OrderRepository;
 import com.michelet.order.infrastructure.client.CatalogClient;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -139,22 +142,9 @@ public class OrderCommandService {
                 // - 확실한 재고 원복을 위해 방어적으로 STOCK_RESTORE를 한 번 더 재발행함
                 // -> 이로 인해 발생할 수 있는 2번의 복구 이벤트는 인벤토리 서비스의 멱등성 처리로 안전하게 무시됨!
                 log.warn("[Order Saga Edge-Case] 이미 유저가 취소한 주문에 대해 승인이 도착했습니다. 인벤토리 롤백 이벤트를 발행합니다: {}", reservationId);
-                for (OrderItem item : order.getOrderItems()) {
-                    // 동일한 비즈니스 행위에 대해 결정적(Deterministic) UUID 기반의 고유 식별자 발급
-                    String uniqueKey = "RESTORE_" + order.getId().toString() + "_" + item.getOptionId().toString();
-                    UUID deterministicEventId = UUID.nameUUIDFromBytes(uniqueKey.getBytes());
 
-                    orderOutboxHelper.append(
-                        "ORDER",
-                        order.getReservationId().toString(), //ORDER_CREATED와 똑같은 카프카 파티션에 들어가게 만들기 위함
-                        "STOCK_RESTORE",
-                        new StockRestoreEventPayload(
-                            deterministicEventId,
-                            item.getOptionId(),
-                            item.getQuantity()
-                        )
-                    );
-                }
+                // 수량 합산 및 Outbox 기록 공통 메서드 호출
+                this.appendStockRestoreOutbox(order);
             } else {
                 log.info("[Idempotency] 이미 처리된 주문입니다. (현재 상태: {})", order.getStatus());
             }
@@ -194,22 +184,40 @@ public class OrderCommandService {
         // 방문 예정일 이전인지 확인하고 상태 변경 (현재 시점 전달)
         order.cancel(LocalDate.now());
 
-        for (OrderItem item : order.getOrderItems()) {
+        // 수량 합산 및 Outbox 기록 공통 메서드 호출
+        this.appendStockRestoreOutbox(order);
+    }
+
+    /**
+     * 동일 optionId 상품에 대한 수량을 미리 합산한 뒤 결정적 고유 식별자로 Outbox 적재
+     */
+    private void appendStockRestoreOutbox(Order order) {
+        Map<UUID, Integer> restoreByOption = order.getOrderItems().stream()
+            .collect(Collectors.groupingBy(
+                OrderItem::getOptionId,
+                Collectors.summingInt(OrderItem::getQuantity)
+            ));
+
+        for (Map.Entry<UUID, Integer> entry : restoreByOption.entrySet()) {
+            UUID optionId = entry.getKey();
+            int quantity = entry.getValue();
+
             // 동일한 비즈니스 행위에 대해 결정적(Deterministic) UUID 기반의 고유 식별자 발급
-            String uniqueKey = "RESTORE_" + order.getId().toString() + "_" + item.getOptionId().toString();
-            UUID deterministicEventId = UUID.nameUUIDFromBytes(uniqueKey.getBytes());
+            String uniqueKey = "RESTORE_" + order.getId().toString() + "_" + optionId.toString();
+            UUID deterministicEventId = UUID.nameUUIDFromBytes(uniqueKey.getBytes(StandardCharsets.UTF_8));
 
             orderOutboxHelper.append(
                 "ORDER",
-                order.getReservationId().toString(), //ORDER_CREATED와 똑같은 카프카 파티션에 들어가게 만들기 위함
+                order.getReservationId().toString(), // ORDER_CREATED와 똑같은 카프카 파티션에 들어가게 만들기 위함
                 "STOCK_RESTORE",
                 new StockRestoreEventPayload(
                     deterministicEventId,
-                    item.getOptionId(),
-                    item.getQuantity()
+                    optionId,
+                    quantity
                 )
             );
-            log.info("주문 취소에 따른 재고 복구 Outbox 저장 완료: optionId={}, quantity={}", item.getOptionId(), item.getQuantity());
+            log.info("주문 변경/취소에 따른 재고 복구 Outbox 저장 완료: optionId={}, quantity={}, eventId={}",
+                optionId, quantity, deterministicEventId);
         }
     }
 
