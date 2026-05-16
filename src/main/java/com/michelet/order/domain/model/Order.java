@@ -175,17 +175,29 @@ public class Order extends BaseEntity {
 
     // 인벤토리 거절 등 시스템 사유로 강제 취소 (방어적 프로그래밍 적용)
     public void forceCancelBySystem(String reason) {
-        // 1. 이미 완료되거나 수령된 상태(Terminal Status)인지 체크
+        // 1. 이미 취소된 상태라면 멱등성 보장을 위해 조기 반환 (카프카 재시도 방어)
+        if (this.status == OrderStatus.CANCELED) {
+            return;
+        }
+
+        // 2. 이미 완료되거나 수령된 상태(Terminal Status)인지 체크
         if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.RECEIVED) {
             throw new IllegalStateException("이미 완료되거나 수령된 주문은 강제 취소할 수 없습니다.");
         }
-        // 2. 강제 취소 사유 파라미터 검증
+
+        // 3. 강제 취소 사유 파라미터 검증
         if (reason == null || reason.isBlank()) {
             throw new IllegalArgumentException("강제 취소 사유는 필수입니다.");
         }
 
+        // 4. DB 컬럼 제약(255자)에 맞게 Data Truncation 방어
+        String trimmedReason = reason.trim();
+        if (trimmedReason.length() > 255) {
+            trimmedReason = trimmedReason.substring(0, 255);
+        }
+
         this.status = OrderStatus.CANCELED;
-        this.cancellationReason = reason.trim();
+        this.cancellationReason = trimmedReason;
     }
 
     public void complete() {

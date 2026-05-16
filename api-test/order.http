@@ -637,7 +637,7 @@ X-Internal-Token: {{inv_internal_token}}
 > {%
     client.test("첫 번째 복구 성공", function () {
         client.assert(response.status === 200, "여전히 403이라면 inv_internal_token이 비어있는지 확인 필요.");
-        client.log("첫 번째 성공! (eventId: " + client.global.get("fixed_event_id") + ")");
+        client.log("첫 번째 성공! (eventId: 99999999-9999-9999-9999-999999999999)");
     });
 %}
 
@@ -705,7 +705,7 @@ Authorization: Bearer {{ord_userToken}}
 
 {
     "restaurantId": "{{ord_restaurantId_2}}",
-    "reservationId": "{{fresh_test_reservation_id}} ",
+    "reservationId": "{{fresh_test_reservation_id}}",
     "orderName": "실제 데이터 기반 보상 로직 테스트",
     "receivingMethod": "PICKUP",
     "expiredAt": "2026-12-31T18:00:00",
