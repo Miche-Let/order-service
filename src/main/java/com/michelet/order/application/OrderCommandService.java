@@ -129,6 +129,11 @@ public class OrderCommandService {
         // 이미 처리되었거나 상태가 넘어간 경우 (멱등성 방어)
         if (order.getStatus() != OrderStatus.PENDING) {
             if (order.getStatus() == OrderStatus.CANCELED) {
+                // 멱등성 및 중복 이벤트 발행 의도에 대한 문서화 주석
+                // - 유저 취소 시 cancelOrder()에서 이미 STOCK_RESTORE가 한 번 발행되었을 수 있음.
+                // - 그러나 인벤토리가 찰나의 순간에 ORDER_CREATED를 먼저 처리하고 승인을 보낸 상황이므로,
+                // - 확실한 재고 원복을 위해 방어적으로 STOCK_RESTORE를 한 번 더 재발행함
+                // -> 이로 인해 발생할 수 있는 2번의 복구 이벤트는 인벤토리 서비스의 멱등성 처리로 안전하게 무시됨!
                 log.warn("[Order Saga Edge-Case] 이미 유저가 취소한 주문에 대해 승인이 도착했습니다. 인벤토리 롤백 이벤트를 발행합니다: {}", reservationId);
                 for (OrderItem item : order.getOrderItems()) {
                     orderOutboxHelper.append(

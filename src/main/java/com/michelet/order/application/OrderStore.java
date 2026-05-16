@@ -1,16 +1,11 @@
 package com.michelet.order.application;
 
 import com.michelet.order.application.dto.OrderCreatedEventPayload;
-import com.michelet.order.application.dto.StockRestoreEventPayload;
 import com.michelet.order.domain.model.Order;
 import com.michelet.order.domain.repository.OrderRepository;
-import com.michelet.order.infrastructure.client.InventoryClient;
-import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
@@ -29,42 +24,23 @@ public class OrderStore {
         return orderRepository.save(order);
     }
 
-    // 주문 저장과 Outbox 생성을 하나의 트랜잭션으로 묶음
+    /**
+     * 주문 저장과 Outbox 생성을 하나의 트랜잭션으로 묶음 - 비동기 Saga 패턴의 시작점: PENDING 상태의 주문과 카프카 발행을 위한 ORDER_CREATED 이벤트를 동시 적재
+     */
     @Transactional
     public Order saveOrderAndOutbox(
         Order order,
         OrderCreatedEventPayload payload
     ) {
         Order savedOrder = orderRepository.save(order);
+
         orderOutboxHelper.append(
             "ORDER",
             order.getReservationId().toString(),
             "ORDER_CREATED",
-            payload)
-        ;
-        return savedOrder;
-    }
+            payload
+        );
 
-    /**
-     * 에러 발생 시 보상 트랜잭션(아웃박스)을 DB에 기록함 기존 트랜잭션이 에러로 롤백 마킹되었을 수 있으므로 REQUIRES_NEW로 새 트랜잭션을 연다
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void saveCompensationOutbox(UUID reservationId, List<InventoryClient.RestoreStockRequest> reservedStocks) {
-        for (InventoryClient.RestoreStockRequest restoreReq : reservedStocks) {
-            try {
-                orderOutboxHelper.appendCompensation(
-                    "ORDER",
-                    reservationId.toString(),  // Order가 생성되기 전이므로 예약 ID를 Aggregate ID로 사용
-                    "STOCK_RESTORE",
-                    // UUID.randomUUID()를 통해 고유한 이벤트 식별자(eventId) 발급
-                    new StockRestoreEventPayload(UUID.randomUUID(), restoreReq.optionId(), restoreReq.quantity())
-                );
-                log.info("보상 Outbox 저장 완료: 옵션 {} 재고 복구 대기", restoreReq.optionId());
-            } catch (Exception outboxEx) {
-                log.error(
-                    "[CRITICAL ALERT] 보상 트랜잭션 Outbox 저장 실패. 수동 복구 요망! reservationId: {}, optionId: {}, quantity: {}",
-                    reservationId, restoreReq.optionId(), restoreReq.quantity(), outboxEx);
-            }
-        }
+        return savedOrder;
     }
 }

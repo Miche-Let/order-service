@@ -173,10 +173,19 @@ public class Order extends BaseEntity {
         this.status = OrderStatus.OCCUPIED;
     }
 
-    // 인벤토리 거절 등 시스템 사유로 강제 취소 (날짜 체크 무시 및 사유 기록)
+    // 인벤토리 거절 등 시스템 사유로 강제 취소 (방어적 프로그래밍 적용)
     public void forceCancelBySystem(String reason) {
+        // 1. 이미 완료되거나 수령된 상태(Terminal Status)인지 체크
+        if (this.status == OrderStatus.COMPLETED || this.status == OrderStatus.RECEIVED) {
+            throw new IllegalStateException("이미 완료되거나 수령된 주문은 강제 취소할 수 없습니다.");
+        }
+        // 2. 강제 취소 사유 파라미터 검증
+        if (reason == null || reason.isBlank()) {
+            throw new IllegalArgumentException("강제 취소 사유는 필수입니다.");
+        }
+
         this.status = OrderStatus.CANCELED;
-        this.cancellationReason = reason;
+        this.cancellationReason = reason.trim();
     }
 
     public void complete() {
