@@ -21,6 +21,7 @@ import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.domain.repository.OrderRepository;
 import com.michelet.order.infrastructure.client.CatalogClient;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -62,6 +63,10 @@ class OrderCommandServiceTest {
     private ArgumentCaptor<Order> orderCaptor;
     @Captor
     private ArgumentCaptor<OrderCreatedEventPayload> payloadCaptor;
+
+    // Outbox Payload 자체 검증을 위한 Captor 인스턴스 주입 선언
+    @Captor
+    private ArgumentCaptor<StockRestoreEventPayload> restorePayloadCaptor;
 
     @Test
     @DisplayName("성공: 다중 품목 주문 시 총 주문 금액이 정확히 계산되고 PENDING 상태로 저장되어야 한다")
@@ -182,11 +187,12 @@ class OrderCommandServiceTest {
         UUID orderId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
         UUID optionId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID(); // 예약 ID 변수 추가
 
         OrderItem item = OrderItem.create(optionId, "테스트상품", new BigDecimal("1000"), 2);
         Order order = Order.create(
             userId,
-            UUID.randomUUID(),
+            reservationId, // 위에서 만든 예약 ID 주입
             UUID.randomUUID(),
             "테스트 주문",
             LocalDate.now().plusDays(1),
@@ -205,12 +211,23 @@ class OrderCommandServiceTest {
 
         // then
         assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
+
+        // 파티션 키, 결정적 UUID 정합성 캡처 검증
         verify(orderOutboxHelper, times(1)).append(
             eq("ORDER"),
-            eq(orderId.toString()),
+            eq(reservationId.toString()), // 파티션 키가 reservationId로 잘 넘어갔는지 검증
             eq("STOCK_RESTORE"),
-            any(StockRestoreEventPayload.class)
+            restorePayloadCaptor.capture()
         );
+
+        StockRestoreEventPayload restorePayload = restorePayloadCaptor.getValue();
+        UUID expectedEventId = UUID.nameUUIDFromBytes(
+            ("RESTORE_" + orderId.toString() + "_" + optionId.toString()).getBytes(StandardCharsets.UTF_8)
+        );
+
+        assertThat(restorePayload.eventId()).isEqualTo(expectedEventId);
+        assertThat(restorePayload.optionId()).isEqualTo(optionId);
+        assertThat(restorePayload.quantity()).isEqualTo(2);
     }
 
     @Test
