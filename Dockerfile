@@ -7,18 +7,14 @@ COPY build.gradle settings.gradle ./
 COPY src src
 
 RUN chmod +x ./gradlew
-RUN ./gradlew bootJar --no-daemon
+RUN ./gradlew bootJar -x test -x asciidoctor --no-daemon
 
 FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-COPY --from=builder /app/build/libs/*-SNAPSHOT.jar app.jar
+COPY --from=builder /app/build/libs/*.jar app.jar
 
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-RUN chown -R appuser:appuser /app
-
-USER appuser
-
-EXPOSE 19700
+ARG SERVER_PORT=19700
+EXPOSE ${SERVER_PORT}
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

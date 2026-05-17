@@ -57,6 +57,8 @@ dependencies {
     implementation 'com.github.Miche-Let:common-auth-feign:0.1.2'
 
     implementation 'org.springframework.boot:spring-boot-starter-security'
+
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }
 
 dependencyManagement {
@@ -80,4 +82,9 @@ tasks.named('asciidoctor') {
 bootJar {
     dependsOn asciidoctor
     from("${asciidoctor.outputDir}") { into 'static/docs' }
+}
+
+// plain jar 생성 방지
+jar {
+    enabled = false
 }
