@@ -9,6 +9,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -30,6 +31,12 @@ import lombok.NoArgsConstructor;
     name = "p_orders",
     uniqueConstraints = {
         @UniqueConstraint(name = "uk_orders_reservation_id", columnNames = {"reservation_id"})
+    },
+    indexes = {
+        // 페이징 조회 성능(Index Scan)을 위한 복합 인덱스 추가
+        // -> '=' 조건으로 먼저 필터링하는 user_id를 선행 컬럼으로,
+        // -> 정렬(ORDER BY)에 사용되는 reserved_date를 후행 컬럼으로 배치
+        @Index(name = "idx_order_user_id_reserved_date", columnList = "user_id, reserved_date DESC")
     }
 )
 @Getter
