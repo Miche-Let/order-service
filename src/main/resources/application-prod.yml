@@ -1,0 +1,59 @@
+server:
+    port: ${SERVER_PORT:19700}
+
+spring:
+    application:
+        name: order-service
+
+    datasource:
+        url: jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
+        username: ${POSTGRES_USER}
+        password: ${POSTGRES_PASSWORD}
+        driver-class-name: org.postgresql.Driver
+
+    data:
+        redis:
+            host: ${REDIS_HOST}
+            port: ${REDIS_PORT:6379}
+
+    kafka:
+        bootstrap-servers: ${KAFKA_BROKERS}
+        producer:
+            key-serializer: org.apache.kafka.common.serialization.StringSerializer
+            value-serializer: org.apache.kafka.common.serialization.StringSerializer
+        consumer:
+            key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+            group-id: ${spring.application.name}-group
+
+    jpa:
+        hibernate:
+            ddl-auto: update
+        properties:
+            hibernate:
+                default_schema: order_service
+                format_sql: true
+        show-sql: true
+
+    cloud:
+        inetutils:
+            ignored-interfaces: [ "lo", "docker.*", "veth.*" ]
+            preferred-networks: [ "10.0" ]
+            use-only-site-local-interfaces: true
+
+eureka:
+    client:
+        enabled: ${EUREKA_ENABLED:false}
+        service-url:
+            defaultZone: http://${EUREKA_HOST}:${EUREKA_PORT}/eureka/
+    instance:
+        prefer-ip-address: true
+
+management:
+    endpoints:
+        web:
+            exposure:
+                include: health,info,prometheus
+    endpoint:
+        health:
+            show-details: always
