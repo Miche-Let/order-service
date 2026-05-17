@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.context.annotation.Profile;
@@ -21,6 +22,9 @@ public class OrderPerfDataInitializer implements ApplicationRunner {
 
     private final JdbcTemplate jdbcTemplate;
 
+    @Value("${spring.jpa.properties.hibernate.default_schema:order_service}")
+    private String schemaName;
+
     // 타겟 유저 고정 UUID
     private static final UUID TARGET_USER_ID = UUID.fromString("7e6e1217-8fd6-4424-bd8f-2382d54f01cc");
     // Auditing (생성자/수정자) 용 더미 UUID
@@ -28,18 +32,22 @@ public class OrderPerfDataInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM order_service.p_orders", Long.class);
+        String countSql = String.format("SELECT COUNT(*) FROM %s.p_orders", schemaName);
+        Long count = jdbcTemplate.queryForObject(countSql, Long.class);
+
         if (count != null && count > 0) {
             log.info("[OrderPerfInitializer] 이미 데이터가 존재하여 더미 삽입을 생략합니다. ({}건)", count);
             return;
         }
 
-        log.info("[OrderPerfInitializer] 100만 건 더미 주문 데이터 Batch Insert 시작...");
+        log.info("[OrderPerfInitializer] 100만 건 더미 주문 데이터 Batch Insert 시작... (적용 스키마: {})", schemaName);
         long startTime = System.currentTimeMillis();
 
-        String sql =
-            "INSERT INTO order_service.p_orders (id, user_id, status, receiving_method, expired_at, reservation_id, restaurant_id, order_name, reserved_date, total_amount, created_at, updated_at, created_by, updated_by) "
-                + "VALUES (?, ?, 'COMPLETED', 'PICKUP', NOW() + INTERVAL '1 DAY', ?, ?, ?, ?, 50000.00, NOW(), NOW(), ?, ?)";
+        String sql = String.format(
+            "INSERT INTO %s.p_orders (id, user_id, status, receiving_method, expired_at, reservation_id, restaurant_id, order_name, reserved_date, total_amount, created_at, updated_at, created_by, updated_by) "
+                + "VALUES (?, ?, 'COMPLETED', 'PICKUP', NOW() + INTERVAL '1 DAY', ?, ?, ?, ?, 50000.00, NOW(), NOW(), ?, ?)",
+            schemaName
+        );
 
         int batchSize = 10000;
         for (int i = 0; i < 100; i++) {
@@ -56,6 +64,7 @@ public class OrderPerfDataInitializer implements ApplicationRunner {
                     ps.setString(5, "부하테스트 주문 " + globalIndex); // order_name
                     ps.setObject(6, LocalDate.now().minusDays(globalIndex % 365)); // reserved_date
 
+                    // 생성자 및 수정자 UUID 바인딩
                     ps.setObject(7, SYSTEM_USER_ID);
                     ps.setObject(8, SYSTEM_USER_ID);
                 }
