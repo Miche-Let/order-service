@@ -40,7 +40,9 @@ public class SecurityConfig {
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
-                .anyRequest().permitAll()
+                .requestMatchers("/actuator/health", "/actuator/prometheus").permitAll()
+                .requestMatchers("/internal/**").permitAll()
+                .anyRequest().authenticated()
             )
             .addFilterBefore(cleanInternalFilter, UsernamePasswordAuthenticationFilter.class);
 
