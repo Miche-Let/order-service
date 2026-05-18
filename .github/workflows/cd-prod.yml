@@ -1,0 +1,145 @@
+name: CD-PROD
+
+on:
+    workflow_run:
+        workflows: [ "CI-PROD" ]
+        types: [ completed ]
+    workflow_dispatch:
+
+concurrency:
+    group: cd-prod
+    cancel-in-progress: false
+
+permissions:
+    contents: read
+    id-token: write
+
+env:
+    AWS_REGION: ${{ vars.AWS_REGION }}
+    ECR_REGISTRY: ${{ vars.ECR_REGISTRY }}
+    ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+    ECS_CLUSTER: ${{ vars.ECS_CLUSTER }}
+    ECS_SERVICE: ${{ vars.ECS_SERVICE }}
+    TASK_FAMILY: ${{ vars.TASK_FAMILY }}
+    CONTAINER_NAME: ${{ vars.CONTAINER_NAME }}
+
+jobs:
+    deploy:
+        if: >
+            github.event_name == 'workflow_dispatch' ||
+            (
+              github.event_name == 'workflow_run' &&
+              github.event.workflow_run.conclusion == 'success' &&
+              github.event.workflow_run.event == 'push' &&
+              github.event.workflow_run.head_branch == 'main'
+            )
+        runs-on: ubuntu-latest
+        timeout-minutes: 20
+
+        steps:
+            -   name: Configure AWS credentials (OIDC)
+                uses: aws-actions/configure-aws-credentials@v4
+                with:
+                    role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+                    aws-region: ${{ env.AWS_REGION }}
+
+            -   name: Resolve image tag
+                id: tag
+                run: |
+                    if [ "${{ github.event_name }}" = "workflow_run" ]; then
+                      IMAGE_TAG="${{ github.event.workflow_run.head_sha }}"
+                    else
+                      IMAGE_TAG="${{ github.sha }}"
+                    fi
+                    IMAGE_TAG="${IMAGE_TAG:0:7}"
+                    echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+
+            -   name: Verify image exists in ECR
+                run: |
+                    aws ecr describe-images \
+                      --repository-name "${ECR_REPOSITORY}" \
+                      --image-ids imageTag="${{ steps.tag.outputs.image_tag }}" \
+                      > /dev/null
+
+            -   name: Get current task definition
+                run: |
+                    aws ecs describe-task-definition \
+                      --task-definition "${TASK_FAMILY}" \
+                      --query 'taskDefinition' > taskdef.json
+
+            -   name: Render new task definition
+                env:
+                    IMAGE_URI: ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ steps.tag.outputs.image_tag }}
+                run: |
+                    jq \
+                      --arg CN "${CONTAINER_NAME}" \
+                      --arg IMG "${IMAGE_URI}" \
+                      --arg SPRING_PROFILES_ACTIVE "prod" \
+                      --arg SERVER_PORT "${{ vars.SERVER_PORT }}" \
+                      --arg POSTGRES_HOST "${{ vars.POSTGRES_HOST }}" \
+                      --arg POSTGRES_PORT "${{ vars.POSTGRES_PORT }}" \
+                      --arg POSTGRES_DB "${{ vars.POSTGRES_DB }}" \
+                      --arg POSTGRES_USER "${{ vars.POSTGRES_USER }}" \
+                      --arg POSTGRES_PASSWORD "${{ secrets.POSTGRES_PASSWORD }}" \
+                      --arg REDIS_HOST "${{ vars.REDIS_HOST }}" \
+                      --arg REDIS_PORT "${{ vars.REDIS_PORT }}" \
+                      --arg KAFKA_BROKERS "${{ vars.KAFKA_BROKERS }}" \
+                      --arg EUREKA_ENABLED "${{ vars.EUREKA_ENABLED }}" \
+                      --arg EUREKA_HOST "${{ vars.EUREKA_HOST }}" \
+                      --arg EUREKA_PORT "${{ vars.EUREKA_PORT }}" \
+                      --arg JWT_SECRET "${{ secrets.JWT_SECRET }}" \
+                      --arg INTERNAL_AUTH_SECRET "${{ secrets.INTERNAL_AUTH_SECRET }}" \
+                      '
+                      .containerDefinitions |= map(
+                        if .name == $CN then
+                          .image = $IMG
+                          | .environment = [
+                              {"name":"SPRING_PROFILES_ACTIVE","value":$SPRING_PROFILES_ACTIVE},
+                              {"name":"SERVER_PORT","value":$SERVER_PORT},
+                              {"name":"POSTGRES_HOST","value":$POSTGRES_HOST},
+                              {"name":"POSTGRES_PORT","value":$POSTGRES_PORT},
+                              {"name":"POSTGRES_DB","value":$POSTGRES_DB},
+                              {"name":"POSTGRES_USER","value":$POSTGRES_USER},
+                              {"name":"POSTGRES_PASSWORD","value":$POSTGRES_PASSWORD},
+                              {"name":"REDIS_HOST","value":$REDIS_HOST},
+                              {"name":"REDIS_PORT","value":$REDIS_PORT},
+                              {"name":"KAFKA_BROKERS","value":$KAFKA_BROKERS},
+                              {"name":"EUREKA_ENABLED","value":$EUREKA_ENABLED},
+                              {"name":"EUREKA_HOST","value":$EUREKA_HOST},
+                              {"name":"EUREKA_PORT","value":$EUREKA_PORT},
+                              {"name":"JWT_SECRET","value":$JWT_SECRET},
+                              {"name":"INTERNAL_AUTH_SECRET","value":$INTERNAL_AUTH_SECRET},
+                              {"name":"TZ","value":"Asia/Seoul"}
+                            ]
+                        else .
+                        end
+                      )
+                      | del(
+                          .taskDefinitionArn, .revision, .status,
+                          .requiresAttributes, .compatibilities,
+                          .registeredAt, .registeredBy
+                        )
+                      ' taskdef.json > taskdef.new.json
+
+            -   name: Register new task definition revision
+                id: register
+                run: |
+                    ARN=$(aws ecs register-task-definition \
+                      --cli-input-json file://taskdef.new.json \
+                      --query 'taskDefinition.taskDefinitionArn' \
+                      --output text)
+                    echo "task_def_arn=${ARN}" >> "$GITHUB_OUTPUT"
+
+            -   name: Deploy to ECS service
+                run: |
+                    aws ecs update-service \
+                      --cluster "${ECS_CLUSTER}" \
+                      --service "${ECS_SERVICE}" \
+                      --task-definition "${{ steps.register.outputs.task_def_arn }}" \
+                      --force-new-deployment
+
+            -   name: Wait for stable
+                run: |
+                    aws ecs wait services-stable \
+                      --cluster "${ECS_CLUSTER}" \
+                      --services "${ECS_SERVICE}"
