@@ -126,14 +126,23 @@ class OrderTest {
         // given
         OrderItem item = OrderItem.create(UUID.randomUUID(), "상품A", new BigDecimal("10000"), 1);
 
+        // 생성 직전의 시점 캡처
+        LocalDateTime beforeCreate = LocalDateTime.now();
+
         // when
         Order order = Order.create(
             UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
             "테스트 주문", LocalDate.now(), ReceivingMethod.PICKUP, List.of(item)
         );
 
+        // 생성 직후의 시점 캡처
+        LocalDateTime afterCreate = LocalDateTime.now();
+
         // then
-        assertThat(order.getExpiredAt().toLocalDate()).isEqualTo(LocalDate.now());
+        // 날짜가 자정 경계선에서 바뀌었더라도 before와 after 사이에 있는지 검증
+        assertThat(order.getExpiredAt().toLocalDate())
+            .isIn(beforeCreate.toLocalDate(), afterCreate.toLocalDate());
+
         assertThat(order.getExpiredAt().toLocalTime()).isEqualTo(LocalTime.of(23, 0));
     }
 

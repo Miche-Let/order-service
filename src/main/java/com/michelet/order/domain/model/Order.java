@@ -114,7 +114,10 @@ public class Order extends BaseEntity {
             throw new IllegalArgumentException("주문 항목은 최소 1개 이상이어야 합니다.");
         }
 
-        LocalDateTime calculatedExpiredAt = calculateExpiredAt(receivingMethod);
+        ReceivingMethod normalizedReceivingMethod =
+            receivingMethod != null ? receivingMethod : ReceivingMethod.PICKUP;
+
+        LocalDateTime calculatedExpiredAt = calculateExpiredAt(normalizedReceivingMethod);
 
         Order order = Order.builder()
             .userId(userId)
@@ -122,8 +125,8 @@ public class Order extends BaseEntity {
             .restaurantId(restaurantId)
             .orderName(orderName)
             .reservedDate(reservedDate)
-            .receivingMethod(receivingMethod)
-            .expiredAt(calculatedExpiredAt) // 계산된 값 주입
+            .receivingMethod(normalizedReceivingMethod) // 정규화된 값 주입
+            .expiredAt(calculatedExpiredAt)             // 정확히 계산된 시간 주입
             .build();
 
         // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
