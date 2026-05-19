@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
-@Profile("!perf") // perf 환경이 아닐 때 빈으로 등록
+@Profile("!perf & !prod") // perf, prod 환경이 아닐 때 빈으로 등록 - 임
 @RequiredArgsConstructor
 public class DefaultReservationValidationAdapter implements ReservationValidationPort {
 
