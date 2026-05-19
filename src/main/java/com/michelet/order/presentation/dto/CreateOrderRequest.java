@@ -6,7 +6,6 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,7 +14,6 @@ public record CreateOrderRequest(
     @NotNull UUID restaurantId,
     String orderName,
     @NotBlank String receivingMethod,
-    @NotNull LocalDateTime expiredAt,
     @NotEmpty List<@Valid OrderItemRequest> items
 ) {
     public record OrderItemRequest(
@@ -31,7 +29,6 @@ public record CreateOrderRequest(
             restaurantId,
             orderName,
             receivingMethod,
-            expiredAt,
             items.stream().map(it -> new CreateOrderCommand.OrderItemCommand(
                 it.optionId(), it.quantity()
             )).toList()

@@ -23,7 +23,6 @@ import com.michelet.order.infrastructure.client.CatalogClient;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -81,7 +80,6 @@ class OrderCommandServiceTest {
             UUID.randomUUID(),
             null, // 자동 생성을 위해 orderName은 null로 설정
             "PICKUP",
-            LocalDateTime.now().plusHours(2),
             List.of(
                 new CreateOrderCommand.OrderItemCommand(optionId1, 2),
                 new CreateOrderCommand.OrderItemCommand(optionId2, 3)
@@ -197,7 +195,6 @@ class OrderCommandServiceTest {
             "테스트 주문",
             LocalDate.now().plusDays(1),
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(item)
         );
 
@@ -240,7 +237,6 @@ class OrderCommandServiceTest {
             UUID.randomUUID(),
             "빈 주문",
             "PICKUP",
-            LocalDateTime.now().plusHours(2),
             List.of() // 빈 리스트 전달
         ))
             .isInstanceOf(IllegalArgumentException.class)
@@ -268,7 +264,6 @@ class OrderCommandServiceTest {
             "테스트",
             LocalDate.now().plusDays(1),
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(
                 OrderItem.create(
                     UUID.randomUUID(),

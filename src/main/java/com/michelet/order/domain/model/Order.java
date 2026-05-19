@@ -99,7 +99,7 @@ public class Order extends BaseEntity {
     }
 
     public static Order create(UUID userId, UUID reservationId, UUID restaurantId, String orderName,
-                               LocalDate reservedDate, ReceivingMethod receivingMethod, LocalDateTime expiredAt,
+                               LocalDate reservedDate, ReceivingMethod receivingMethod,
                                List<OrderItem> items) {
         // 필수 값에 대한 Fail-fast 검증
         Objects.requireNonNull(userId, "userId는 필수입니다.");
@@ -109,19 +109,24 @@ public class Order extends BaseEntity {
             throw new IllegalArgumentException("orderName은 필수이며 비어있을 수 없습니다.");
         }
         Objects.requireNonNull(reservedDate, "reservedDate는 필수입니다.");
-        Objects.requireNonNull(expiredAt, "expiredAt은 필수입니다.");
 
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("주문 항목은 최소 1개 이상이어야 합니다.");
         }
+
+        ReceivingMethod normalizedReceivingMethod =
+            receivingMethod != null ? receivingMethod : ReceivingMethod.PICKUP;
+
+        LocalDateTime calculatedExpiredAt = calculateExpiredAt(normalizedReceivingMethod);
+
         Order order = Order.builder()
             .userId(userId)
             .reservationId(reservationId)
             .restaurantId(restaurantId)
             .orderName(orderName)
             .reservedDate(reservedDate)
-            .receivingMethod(receivingMethod)
-            .expiredAt(expiredAt)
+            .receivingMethod(normalizedReceivingMethod) // 정규화된 값 주입
+            .expiredAt(calculatedExpiredAt)             // 정확히 계산된 시간 주입
             .build();
 
         // addOrderItem 내부에서 점진적 덧셈을 하므로 N^2 문제 해결 및 별도 calculateTotalAmount 호출 불필요해짐!
@@ -232,5 +237,13 @@ public class Order extends BaseEntity {
             throw new IllegalStateException("방문 예정 당일에만 수령 완료 처리가 가능합니다.");
         }
         this.status = OrderStatus.RECEIVED;
+    }
+
+    private static LocalDateTime calculateExpiredAt(ReceivingMethod receivingMethod) {
+        LocalDateTime now = LocalDateTime.now();
+        if (receivingMethod == ReceivingMethod.PICKUP) {
+            return now.toLocalDate().atTime(23, 0); // 당일 23시 00분
+        }
+        return now.plusMinutes(15); // 그 외(SHIPPING 등)는 현재 시간 + 15분
     }
 }

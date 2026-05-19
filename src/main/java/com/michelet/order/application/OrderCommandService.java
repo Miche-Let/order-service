@@ -103,7 +103,6 @@ public class OrderCommandService {
             finalOrderName,
             verifiedDate, // 포트를 통해 받아온 날짜
             method,
-            command.expiredAt(),
             orderItems
         );
 

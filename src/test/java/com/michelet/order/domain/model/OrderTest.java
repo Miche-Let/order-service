@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -28,7 +29,6 @@ class OrderTest {
             "테스트 주문",
             LocalDate.now(),
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(item1, item2)
         );
 
@@ -90,7 +90,6 @@ class OrderTest {
             "테스트 주문",
             LocalDate.now().plusDays(1), // 방문 예정일을 '내일'로 설정하여 오늘 취소 가능하도록 보장
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(item));
     }
 
@@ -104,7 +103,6 @@ class OrderTest {
             "오늘 주문",
             LocalDate.now(), // 오늘 날짜
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(item));
     }
 
@@ -120,5 +118,53 @@ class OrderTest {
         assertThatThrownBy(order::complete)
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("주문 완료가 불가능한 상태입니다.");
+    }
+
+    @Test
+    @DisplayName("성공: PICKUP 수령 시 만료 시간은 당일 23시로 자동 계산된다")
+    void createOrder_ExpiredAt_Pickup() {
+        // given
+        OrderItem item = OrderItem.create(UUID.randomUUID(), "상품A", new BigDecimal("10000"), 1);
+
+        // 생성 직전의 시점 캡처
+        LocalDateTime beforeCreate = LocalDateTime.now();
+
+        // when
+        Order order = Order.create(
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+            "테스트 주문", LocalDate.now(), ReceivingMethod.PICKUP, List.of(item)
+        );
+
+        // 생성 직후의 시점 캡처
+        LocalDateTime afterCreate = LocalDateTime.now();
+
+        // then
+        // 날짜가 자정 경계선에서 바뀌었더라도 before와 after 사이에 있는지 검증
+        assertThat(order.getExpiredAt().toLocalDate())
+            .isIn(beforeCreate.toLocalDate(), afterCreate.toLocalDate());
+
+        assertThat(order.getExpiredAt().toLocalTime()).isEqualTo(LocalTime.of(23, 0));
+    }
+
+    @Test
+    @DisplayName("성공: SHIPPING (그 외) 수령 시 만료 시간은 현재 시간 + 15분으로 자동 계산된다")
+    void createOrder_ExpiredAt_Shipping() {
+        // given
+        OrderItem item = OrderItem.create(UUID.randomUUID(), "상품B", new BigDecimal("10000"), 1);
+        LocalDateTime beforeCreate = LocalDateTime.now();
+
+        // when
+        Order order = Order.create(
+            UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
+            "테스트 주문", LocalDate.now(), ReceivingMethod.SHIPPING, List.of(item)
+        );
+        LocalDateTime afterCreate = LocalDateTime.now();
+
+        // then
+        // 실행 시간에 따른 미세한 오차를 허용하기 위해 isBetween 사용
+        assertThat(order.getExpiredAt()).isBetween(
+            beforeCreate.plusMinutes(15),
+            afterCreate.plusMinutes(15)
+        );
     }
 }

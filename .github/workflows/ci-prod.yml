@@ -1,8 +1,6 @@
 name: CI-PROD
 
 on:
-    pull_request:
-        branches: [ main, dev ]
     push:
         branches: [ main, dev ]
 
@@ -37,14 +35,12 @@ jobs:
                 run: echo "IMAGE_TAG=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
             -   name: Configure AWS credentials (OIDC) # OIDC 기반으로 역할 자격증명
-                if: github.event_name == 'push'
                 uses: aws-actions/configure-aws-credentials@v4
                 with:
                     role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
                     aws-region: ${{ vars.AWS_REGION }}
 
             -   name: Login to Amazon ECR # 위에서 자격증명하고 ecr 로그인
-                if: github.event_name == 'push'
                 uses: aws-actions/amazon-ecr-login@v2
 
             -   name: Build Docker image  # 이미지 빌드해서
@@ -52,6 +48,5 @@ jobs:
                     docker build --build-arg SERVER_PORT=${{ vars.SERVER_PORT }} -t ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }} .
 
             -   name: Push Docker image to ECR # 이미지 ecr로 업로드
-                if: github.event_name == 'push'
                 run: |
                     docker push ${{ vars.ECR_REGISTRY }}/${{ vars.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}

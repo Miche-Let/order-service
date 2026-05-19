@@ -9,7 +9,6 @@ import com.michelet.order.domain.model.ReceivingMethod;
 import com.michelet.order.infrastructure.config.AuditorConfig;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -38,7 +37,6 @@ class OrderAuditingTest {
             "Auditing 테스트",
             LocalDate.now(),
             ReceivingMethod.PICKUP,
-            LocalDateTime.now().plusHours(2),
             List.of(item));
 
         // when
