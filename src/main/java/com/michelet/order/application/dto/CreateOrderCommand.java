@@ -1,6 +1,5 @@
 package com.michelet.order.application.dto;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -11,14 +10,12 @@ public record CreateOrderCommand(
     UUID restaurantId,
     String orderName,
     String receivingMethod,
-    LocalDateTime expiredAt,
     List<OrderItemCommand> items
 ) {
     public CreateOrderCommand {
         Objects.requireNonNull(userId, "userId는 필수입니다.");
         Objects.requireNonNull(reservationId, "reservationId는 필수입니다.");
         Objects.requireNonNull(restaurantId, "restaurantId는 필수입니다.");
-        Objects.requireNonNull(expiredAt, "expiredAt은 필수입니다.");
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("주문 항목은 최소 1개 이상이어야 합니다.");
         }

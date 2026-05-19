@@ -340,7 +340,6 @@ Authorization: Bearer {{ord_userToken}}
     "reservationId": "{{ord_reservation_cancel}}",
     "orderName": "미슐랭 코스 취소용 주문",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
     "items": [ { "optionId": "{{ord_option_id_1_1}}", "quantity": 1 } ]
 }
 
@@ -412,7 +411,6 @@ Authorization: Bearer {{ord_userToken}}
     "restaurantId": "{{ord_restaurantId_2}}",
     "reservationId": "{{ord_reservation_receive}}",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
     "items": [
         { "optionId": "{{ord_option_id_2_1}}", "quantity": 2 },
         { "optionId": "{{ord_option_id_2_2}}", "quantity": 1 }
@@ -494,7 +492,6 @@ Authorization: Bearer {{dummy_user_token}}
     "reservationId": "{{dummy_reservation_id}}",
     "orderName": "아웃박스 보상 로직 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -521,7 +518,6 @@ Authorization: Bearer {{dummy_user_token}}
     "reservationId": "{{dummy_reservation_id}}",
     "orderName": "아웃박스 취소 로직 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -557,7 +553,6 @@ Authorization: Bearer {{dummy_user_token}}
     "reservationId": "{{dummy_reservation_id}}",
     "orderName": "아웃박스 스케줄러 보상 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -582,7 +577,6 @@ Authorization: Bearer {{dummy_user_token}}
     "reservationId": "{{dummy_reservation_id}}",
     "orderName": "아웃박스 스케줄러 취소 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -670,7 +664,6 @@ Authorization: Bearer {{dummy_user_token}}
     "reservationId": "{{dummy_reservation_id}}",
     "orderName": "정상 트랜잭션 분리 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -708,7 +701,6 @@ Authorization: Bearer {{ord_userToken}}
     "reservationId": "{{fresh_test_reservation_id}}",
     "orderName": "실제 데이터 기반 보상 로직 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1}}",
@@ -742,7 +734,6 @@ Content-Type: application/json
     "reservationId": "{{$random.uuid}}",
     "orderName": "취소할 테스트 주문",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-06-01T18:00:00",
     "items": [
         { "optionId": "44444444-4444-4444-4444-444444444444", "quantity": 1 }
     ]
@@ -779,7 +770,6 @@ Content-Type: application/json
     "orderName": "Saga 비동기 E2E 테스트 주문",
     "receivingMethod": "PICKUP",
     "reservedDate": "{{ord_targetDate_receive}}",
-    "expiredAt": "2026-06-01T18:00:00",
     "items": [
         {
             "optionId": "44444444-4444-4444-4444-444444444444",
@@ -850,7 +840,6 @@ Content-Type: application/json
     "reservationId": "{{$random.uuid}}",
     "orderName": "Saga 비동기 강제 취소(거절) 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1_kafka}}",
@@ -896,7 +885,6 @@ Content-Type: application/json
     "reservationId": "{{$random.uuid}}",
     "orderName": "결정적 UUID 멱등성 테스트",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1_kafka}}",
@@ -948,7 +936,6 @@ Content-Type: application/json
     "reservationId": "{{$random.uuid}}",
     "orderName": "단일 토픽 순서 보장 테스트 주문",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1_kafka}}",
@@ -1001,7 +988,6 @@ Content-Type: application/json
     "reservationId": "{{$random.uuid}}",
     "orderName": "단일 토픽 순서 보장 테스트 주문",
     "receivingMethod": "PICKUP",
-    "expiredAt": "2026-12-31T18:00:00",
     "items": [
         {
             "optionId": "{{ord_option_id_2_1_kafka}}",
