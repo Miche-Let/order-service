@@ -16,10 +16,10 @@ spring:
             host: ${REDIS_HOST}
             port: ${REDIS_PORT:6379}
 
-kafka:
-    bootstrap-servers: ${KAFKA_BROKERS}
-    consumer:
-        group-id: ${spring.application.name}-group
+    kafka:
+        bootstrap-servers: ${KAFKA_BROKERS}
+        consumer:
+            group-id: ${spring.application.name}-group
 
     jpa:
         hibernate:
