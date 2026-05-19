@@ -16,15 +16,10 @@ spring:
             host: ${REDIS_HOST}
             port: ${REDIS_PORT:6379}
 
-    kafka:
-        bootstrap-servers: ${KAFKA_BROKERS}
-        producer:
-            key-serializer: org.apache.kafka.common.serialization.StringSerializer
-            value-serializer: org.apache.kafka.common.serialization.StringSerializer
-        consumer:
-            key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-            value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-            group-id: ${spring.application.name}-group
+kafka:
+    bootstrap-servers: ${KAFKA_BROKERS}
+    consumer:
+        group-id: ${spring.application.name}-group
 
     jpa:
         hibernate:
