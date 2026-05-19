@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@Profile("perf") // perf 환경일 때만 빈으로 등록
+@Profile({"perf", "prod"}) // perf 환경일 때(+ 임시로 prod에서도)만 빈으로 등록
 public class PerfReservationValidationAdapter implements ReservationValidationPort {
 
     private static final LocalDate FIXED_PERF_DATE = LocalDate.of(2026, 12, 31);
